@@ -2,7 +2,7 @@ import sqlite3
 import pandas as pd
 import pytest
 
-from winamax.importacion import DataLoaderError, load_data
+from winamax.data_loader import DataLoaderError, load_data
 
 
 # --- Pruebas de casos de éxito (ficheros válidos) ---

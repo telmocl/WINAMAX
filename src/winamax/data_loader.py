@@ -11,17 +11,14 @@ def _load_sqlite_single_table(path: Path) -> pd.DataFrame:
         que contiene exactamente una tabla."""
         try:
             conn = sqlite3.connect(path)
-            query = "SELECT name FROM sqlite_master" \
-            "WHERE type='table' AND name NOT LIKE 'sqlite_%';"
+            query = """SELECT name FROM sqlite_master
+            WHERE type='table' AND name NOT LIKE 'sqlite_%';"""
             tables = pd.read_sql(query, conn)
 
             if tables.empty:
-                raise DataLoaderError("La base de datos SQLite" \
-                " no contiene ninguna tabla.")
+                raise DataLoaderError("no contiene ninguna tabla")
             if len(tables) > 1:
-                raise DataLoaderError( 
-                    f"La base de datos SQLite contiene más de una tabla ({len(tables)} encontradas). "
-                "Se requiere exactamente una tabla." )
+                raise DataLoaderError("más de una tabla" )
 
             table_name = tables.iloc[0, 0]
             df = pd.read_sql(f'SELECT * FROM "{table_name}"', conn)
