@@ -70,3 +70,31 @@ Quien revisa una PR comprueba que:
 - Los mensajes de commit siguen Conventional Commits.
 - `uv run pytest` pasa.
 - No se han subido datos ni `.venv/`.
+## Librería gráfica (GUI)
+
+Para la interfaz usamos **PySide6**. Antes de decidir comparamos dos opciones:
+Tkinter y PySide6 / PyQt6.
+
+| Criterio | Tkinter | PySide6 / PyQt6 |
+|---|---|---|
+| Facilidad de uso | Muy fácil, ideal para prototipos | Media-alta (señales y slots) |
+| Compatibilidad | Multiplataforma, viene con Python | Multiplataforma, aspecto nativo en cada sistema |
+| Licencia | PSF (permisiva) | LGPL (PySide6) / GPL o comercial (PyQt6) |
+| Documentación | Muchos ejemplos, pero fragmentada | Excelente documentación oficial y comunidad activa |
+| Componentes | `filedialog`, `ttk.Treeview` (tablas limitadas), `Combobox`, Matplotlib con `backend_tkagg` | `QFileDialog`, `QTableView`/`QTableWidget`, `QComboBox`, Matplotlib con `FigureCanvasQTAgg` |
+| Instalación con `uv` | `uv add tk` (si hace falta) | `uv add pyside6` |
+
+### Por qué PySide6 y no PyQt6
+
+- PyQt6 y PySide6 son casi equivalentes, pero usamos **PySide6 porque PyQt6
+  no funciona en el equipo de Telmo. Para que todos podamos ejecutar y
+  probar la aplicación, elegimos la que funciona en todos los equipos.
+- Su licencia LGPL encaja mejor con un entorno académico que la de PyQt6.
+- Ofrece una aplicación de aspecto profesional, con tablas robustas y manejo
+  avanzado de eventos, útil para mostrar los resultados de nuestros modelos
+  (curvas de pérdida, métricas, etc.).
+- Tkinter sería más rápido de empezar, pero se queda corto en tablas e
+  integración de gráficos.
+
+Se instala con:
+    uv add pyside6
