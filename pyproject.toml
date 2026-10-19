@@ -4,11 +4,18 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 authors = [
-    { name = "telmo.carballes", email = "telmo.carballes@udc.es" }
-    { name = "pablo.viela" , email = "pablo.vilela1@udc.es"}
+    { name = "telmo.carballes", email = "telmo.carballes@udc.es" } ,
+    { name = "pablo.vilela" , email = "pablo.vilela1@udc.es"}
 ]
 requires-python = ">=3.14"
-dependencies = []
+dependencies = [
+    "matplotlib>=3.11.2",
+    "numpy>=2.5.4",
+    "openpyxl>=3.1.5",
+    "pandas>=3.0.6",
+    "pyside6<6.7",
+    "xlrd>=2.0.2",
+]
 
 [project.scripts]
 winamax = "winamax:main"
@@ -16,3 +23,8 @@ winamax = "winamax:main"
 [build-system]
 requires = ["uv_build>=0.12.21,<0.13.0"]
 build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
