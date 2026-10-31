@@ -154,3 +154,44 @@ Se añadió `scikit-learn` como dependencia oficial del proyecto ejecutando:
 
 ```bash
 uv add scikit-learn pandas numpy
+
+## 4. Procedimiento de release
+
+Pasos para publicar una versión (ejemplo con `v0.1.0`; sustituir por la versión que toque). Ejecutar los comandos **uno por uno**: en PowerShell antiguo `&&` no funciona.
+
+### 4.1 Requisitos previos
+
+- Las historias de la versión están terminadas y fusionadas en `dev`.
+- Todas las pruebas pasan sobre `dev`:
+  ```powershell
+  git checkout dev
+  git pull
+  uv run pytest
+  ```
+- Un miembro del equipo que **no** haya implementado esas historias prueba el flujo con un dataset de `data/` (cargar, seleccionar columnas, separar, preprocesar). Los errores se corrigen en ramas `fix/...` hacia `dev` antes de continuar.
+- El `README.md` describe las funcionalidades de la versión y cómo ejecutarla, y el comando indicado funciona.
+
+### 4.2 Actualizar la versión
+
+Comprobar que `version` en `pyproject.toml` coincide con la versión a publicar (SemVer: `0.x.y` = en desarrollo). Si no coincide:
+
+```powershell
+git checkout dev
+git pull
+git checkout -b chore/version-0.1.0
+# editar pyproject.toml
+git add pyproject.toml
+git commit -m "chore: actualizar versión a 0.1.0"
+git push -u origin chore/version-0.1.0
+```
+
+Abrir una Pull Request hacia `dev` y fusionarla.
+
+> **Aviso:** al crear una Pull Request, GitHub puede proponer `main` como base. Comprobar siempre que la base es `dev`. La única fusión hacia `main` es la de `dev` en una release.
+
+### 4.3 Fusionar `dev` en `main`
+
+```powershell
+git checkout dev
+git pull
+git checkout
