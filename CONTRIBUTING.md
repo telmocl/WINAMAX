@@ -98,3 +98,59 @@ Tkinter y PySide6 / PyQt6.
 
 Se instala con:
     uv add pyside6
+
+#Investigación librería regresión lineal
+
+## 1. Comparativa de Librerías Investigadas
+
+Para seleccionar el enfoque adecuado se investigaron tres alternativas principales en el ecosistema Python:
+
+| Aspecto | `scikit-learn` | `statsmodels` | `numpy` (`lstsq` / `polyfit`) |
+| :--- | :--- | :--- | :--- |
+| **Facilidad de uso y documentación** :
+    Excelente. API orientada a objetos estandarizada (`fit`, `predict`), muy intuitiva y bien documentada.
+
+    Buena pero académica. Enfocada en estadística formal; requiere añadir la constante manualmente (`add_constant`).
+
+    Baja/Media. Nivel matemático puro. Requiere construir y manipular matrices a mano. |
+| **Regresión Simple y Múltiple** 
+     Misma sintaxis (`.fit(X, y)`) sin importar el número de variables de entrada.
+
+     Requiere definir fórmulas estilo R (vía `patsy`) o construir matrices de diseño explícitas. 
+
+     Requiere construir la matriz de diseño $X$ manualmente para regresión múltiple.
+| **Extracción de Coeficientes** :
+    Directa mediante atributos del modelo: `model.coef_` y `model.intercept_`. 
+    Directa tras el ajuste: `results.params`. 
+    Directa desde el vector de solución devuelto por el solver. 
+| **Métricas de Error** :
+    Integradas y directas mediante `sklearn.metrics` (`mean_squared_error`, `r2_score`). 
+
+    Incluidas en el resumen estadístico (`summary()`), aunque algunas métricas requieren cálculo adicional. 
+
+    No disponibles de forma nativa; deben implementarse manualmente con fórmulas matemáticas.
+
+| **Instalación en el proyecto (`uv`)** :
+    `uv add scikit-learn pandas` 
+    `uv add statsmodels pandas` 
+    `uv add numpy pandas` 
+
+---
+
+## 2. Librería Seleccionada y Justificación
+
+### **Selección:** `scikit-learn`
+
+### **Justificación:**
+1. **Estándar de la industria y mantenibilidad:** Su interfaz unificada (`fit`, `predict`, `score`) facilita la incorporación de nuevos desarrolladores al equipo sin curvas de aprendizaje complejas.
+2. **simplicidad:** Permite escalar de regresión lineal simple a múltiple sin reescribir ni añadir complejidad a la estructura del código.
+3. **Ecosistema integrado:** Ofrece métricas nativas optimizadas para evaluar modelos en entornos de desarrollo y producción.
+
+---
+
+## 3. Gestión de Dependencias
+
+Se añadió `scikit-learn` como dependencia oficial del proyecto ejecutando:
+
+```bash
+uv add scikit-learn pandas numpy
