@@ -11,7 +11,7 @@ from sklearn.model_selection import train_test_split
 
 
 def main():
-  # 1. Cargar los datos desde la carpeta local data/
+  
   data_path = Path("data/housing.csv")
 
   if not data_path.exists():
@@ -24,11 +24,11 @@ def main():
   print(f"--> Datos cargados exitosamente desde {data_path}")
   print(f"Dimensiones del dataset original: {df.shape}")
 
-  # Eliminar filas con valores nulos (NaN) para evitar errores en scikit-learn
+  
   df = df.dropna()
   print(f"Dimensiones tras eliminar valores nulos (NaN): {df.shape}\n")
 
-  # Filtrar únicamente las columnas de tipo numérico (excluyendo texto como 'ocean_proximity')
+  
   df_numeric = df.select_dtypes(include=["number"])
   print(
       "Dimensiones tras filtrar solo columnas numéricas:"
@@ -41,26 +41,25 @@ def main():
         " regresión."
     )
 
-  # Separar características (X) y variable objetivo / salida (y)
-  # Asumimos que la última columna numérica es la variable objetivo (<salida>)
+  
   X = df_numeric.iloc[:, :-1]
   y = df_numeric.iloc[:, -1]
 
-  # 2. Separar los datos en entrenamiento (80%) y test (20%)
+  
   X_train, X_test, y_train, y_test = train_test_split(
       X, y, test_size=0.2, random_state=42
   )
 
-  # 3. Entrenar el modelo con el conjunto de entrenamiento
+ 
   model = LinearRegression()
   model.fit(X_train, y_train)
 
-  # 4. Obtener coeficientes y término independiente para construir la fórmula
+  
   intercepto = model.intercept_
   coeficientes = model.coef_
   columnas = X.columns
 
-  # Construcción dinámica de la fórmula del modelo
+  
   formula_terms = [
       f"({coef:.4f} * {col})" for coef, col in zip(coeficientes, columnas)
   ]
@@ -70,7 +69,7 @@ def main():
   print(formula)
   print("\n" + "=" * 30 + "\n")
 
-  # 5. Calcular métricas (ECM y R²) en entrenamiento y test
+  
   y_train_pred = model.predict(X_train)
   y_test_pred = model.predict(X_test)
 
@@ -85,8 +84,7 @@ def main():
   print(f"[Test          ] ECM: {ecm_test:.4f} | R²: {r2_test:.4f}")
   print("\n" + "=" * 30 + "\n")
 
-  # 6. Realizar una predicción para un valor de entrada nuevo
-  # Tomamos como ejemplo el primer registro del conjunto de test
+  
   ejemplo_nuevo = X_test.iloc[[0]]
   prediccion_nueva = model.predict(ejemplo_nuevo)
 
