@@ -1,13 +1,15 @@
 """Interfaz gráfica para cargar, revisar datasets y seleccionar variables.
 
 La lectura de archivos la hace winamax.data_loader; la validación de
-columnas la hace winamax.selector_logic; la separación winamax.separacion_logica
-y el preprocesamiento de nulos winamax.preprocessing.
+columnas la hace winamax.selector_logic; la separación winamax.separacion_logica;
+el preprocesamiento de nulos winamax.preprocessing y el modelo winamax.modelo_logica.
 """
 
 import sys
 from pathlib import Path
 
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 import pandas as pd
 from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt
 from PySide6.QtWidgets import (
@@ -26,16 +28,19 @@ from PySide6.QtWidgets import (
     QPushButton,
     QRadioButton,
     QScrollArea,
+    QTableWidget,
+    QTableWidgetItem,
     QTableView,
     QVBoxLayout,
     QWidget,
 )
 
 from winamax.data_loader import DataLoaderError, load_data
+from winamax.modelo_logica import entrenar_modelo_lineal
 from winamax.separacion_logica import realizar_separacion_datos
 from winamax.selector_logic import validar_seleccion_columnas
 
-# Importación de tus funciones de detección y preprocesamiento de nulos
+# Importación de funciones de detección y preprocesamiento de nulos
 from winamax.utilidades import (
     detectar_nulos,
     preprocesar_eliminar_filas,
@@ -79,8 +84,8 @@ class VentanaPrincipal(QMainWindow):
   def __init__(self):
     super().__init__()
     self.setWindowTitle("WINAMAX - Pipeline de Machine Learning")
-    self.resize(1000, 850)
-    self.setMinimumSize(760, 600)
+    self.resize(1000, 950)
+    self.setMinimumSize(760, 650)
     self.setStyleSheet("""
       QMainWindow, QScrollArea, QWidget {
         background-color: #f5f7fa;
@@ -124,7 +129,7 @@ class VentanaPrincipal(QMainWindow):
         background-color: #cbd5e1;
         color: #64748b;
       }
-      QLineEdit, QComboBox, QListWidget, QTableView {
+      QLineEdit, QComboBox, QListWidget, QTableView, QTableWidget {
         background-color: #ffffff;
         border: 1px solid #cbd5e1;
         border-radius: 5px;
@@ -135,7 +140,7 @@ class VentanaPrincipal(QMainWindow):
       QLineEdit:focus, QComboBox:focus, QListWidget:focus, QTableView:focus {
         border: 1px solid #4b8ac6;
       }
-      QTableView {
+      QTableView, QTableWidget {
         gridline-color: #e2e8f0;
         alternate-background-color: #f8fafc;
       }
@@ -170,6 +175,7 @@ class VentanaPrincipal(QMainWindow):
     # Datos preprocesados finales listos para el modelo
     self.train_processed: pd.DataFrame | None = None
     self.test_processed: pd.DataFrame | None = None
+    self.modelo_entrenado = None
 
     area_desplazable = QScrollArea()
     area_desplazable.setWidgetResizable(True)
@@ -307,7 +313,6 @@ class VentanaPrincipal(QMainWindow):
 
     layout_preproc.addLayout(layout_estrategias)
 
-    # Habilitar/deshabilitar campo constante dinámicamente
     self.rb_constant.toggled.connect(self.input_constante.setEnabled)
 
     self.btn_aplicar_preproc = QPushButton("Aplicar preprocesado")
@@ -318,7 +323,7 @@ class VentanaPrincipal(QMainWindow):
 
     layout_principal.addWidget(self.grupo_preproc)
 
-    # --- 6. Creación del Modelo ---
+    # --- 6. Creación y Evaluación del Modelo ---
     self.grupo_modelo = QGroupBox("Creación y Evaluación del Modelo")
     self.grupo_modelo.setEnabled(False)
     layout_modelo = QVBoxLayout(self.grupo_modelo)
@@ -328,6 +333,26 @@ class VentanaPrincipal(QMainWindow):
     self.btn_crear_modelo.setMaximumWidth(260)
     self.btn_crear_modelo.clicked.connect(self.crear_modelo)
     layout_modelo.addWidget(self.btn_crear_modelo, alignment=Qt.AlignLeft)
+
+    # Fórmula del modelo
+    self.lbl_formula = QLabel("<b>Fórmula:</b> -")
+    self.lbl_formula.setWordWrap(True)
+    self.lbl_formula.setStyleSheet("color: #1e3a5f; margin-top: 6px;")
+    layout_modelo.addWidget(self.lbl_formula)
+
+    # Métricas de error (Tabla compacta)
+    layout_modelo.addWidget(QLabel("Métricas de Error:"))
+    self.tabla_metricas = QTableWidget(2, 2)
+    self.tabla_metricas.setHorizontalHeaderLabels(["Entrenamiento (Train)", "Test"])
+    self.tabla_metricas.setVerticalHeaderLabels(["R² (Coeff)", "MSE (Error)"])
+    self.tabla_metricas.setMaximumHeight(95)
+    self.tabla_metricas.horizontalHeader().setStretchLastSection(True)
+    layout_modelo.addWidget(self.tabla_metricas)
+
+    # Gráfico de ajuste embebido con Matplotlib
+    self.fig, self.ax = plt.subplots(figsize=(6, 3.5))
+    self.canvas = FigureCanvas(self.fig)
+    layout_modelo.addWidget(self.canvas)
 
     layout_principal.addWidget(self.grupo_modelo)
 
@@ -371,6 +396,7 @@ class VentanaPrincipal(QMainWindow):
     self.test_df = None
     self.train_processed = None
     self.test_processed = None
+    self.modelo_entrenado = None
     
     self.grupo_split.setEnabled(False)
     self.grupo_preproc.setEnabled(False)
@@ -398,6 +424,7 @@ class VentanaPrincipal(QMainWindow):
       self.test_df = None
       self.train_processed = None
       self.test_processed = None
+      self.modelo_entrenado = None
       
       self.grupo_split.setEnabled(True)
       self.grupo_preproc.setEnabled(False)
@@ -440,9 +467,10 @@ class VentanaPrincipal(QMainWindow):
     self.test_df = test_df
     self.train_processed = None
     self.test_processed = None
+    self.modelo_entrenado = None
     self.grupo_modelo.setEnabled(False)
 
-    # Detectar nulos usando tu función 'detectar_nulos'
+    # Detectar nulos
     columnas_modelo = self.features_seleccionadas + [self.target_seleccionado]
     resultado_nulos = detectar_nulos(self.train_df, self.test_df, columnas_modelo)
     train_m = resultado_nulos["train"]
@@ -477,7 +505,6 @@ class VentanaPrincipal(QMainWindow):
       if self.rb_drop.isChecked():
         train_res, test_res = preprocesar_eliminar_filas(self.train_df, self.test_df, columnas_modelo)
         
-        # Validar si la eliminación deja vacíos los conjuntos
         if train_res.empty or test_res.empty:
           QMessageBox.warning(
               self, 
@@ -503,7 +530,6 @@ class VentanaPrincipal(QMainWindow):
         msg_exito = "<b>Preprocesamiento aplicado con éxito:</b><br>Valores rellenados usando la <b>MEDIANA</b> calculada en el conjunto de entrenamiento."
 
       elif self.rb_constant.isChecked():
-        # Validación de valor constante numérico
         try:
           const_val = float(self.input_constante.text())
         except ValueError:
@@ -519,13 +545,12 @@ class VentanaPrincipal(QMainWindow):
       QMessageBox.critical(self, "Error de Preprocesamiento", str(e))
       return
 
-    # Guardar resultados procesados
     self.train_processed = train_res
     self.test_processed = test_res
+    self.modelo_entrenado = None
 
     QMessageBox.information(self, "Preprocesamiento Exitoso", msg_exito)
 
-    # Verificar si aún quedan nulos en las columnas seleccionadas
     nulos_restantes_train = train_res[columnas_modelo].isna().sum().sum()
     nulos_restantes_test = test_res[columnas_modelo].isna().sum().sum()
 
@@ -539,11 +564,83 @@ class VentanaPrincipal(QMainWindow):
       QMessageBox.warning(self, "Error", "Los datos procesados no están listos.")
       return
 
-    QMessageBox.information(
-        self,
-        "Creación de Modelo",
-        "¡Los conjuntos de entrenamiento y test están listos! Aquí se inicializará el modelo de Regresión Lineal.",
-    )
+    try:
+      modelo, metricas, formula, (y_train, y_pred_train, y_test, y_pred_test) = (
+          entrenar_modelo_lineal(
+              self.train_processed,
+              self.test_processed,
+              self.features_seleccionadas,
+              self.target_seleccionado,
+          )
+      )
+      self.modelo_entrenado = modelo
+
+      # Mostrar fórmula matemática
+      self.lbl_formula.setText(f"<b>Fórmula:</b> {formula}")
+
+      # Mostrar métricas en la tabla de resultados
+      self.tabla_metricas.setItem(0, 0, QTableWidgetItem(f"{metricas['r2_train']:.4f}"))
+      self.tabla_metricas.setItem(1, 0, QTableWidgetItem(f"{metricas['mse_train']:.4f}"))
+      self.tabla_metricas.setItem(0, 1, QTableWidgetItem(f"{metricas['r2_test']:.4f}"))
+      self.tabla_metricas.setItem(1, 1, QTableWidgetItem(f"{metricas['mse_test']:.4f}"))
+
+      # Dibujar gráfico de ajuste con Matplotlib
+      self.ax.clear()
+      if len(self.features_seleccionadas) == 1:
+        # Regresión simple: Dispersión Train/Test + Línea de ajuste
+        feat = self.features_seleccionadas[0]
+        self.ax.scatter(
+            self.train_processed[feat],
+            y_train,
+            color="#2563a6",
+            alpha=0.6,
+            label="Train",
+        )
+        self.ax.scatter(
+            self.test_processed[feat],
+            y_test,
+            color="#f97316",
+            alpha=0.6,
+            label="Test",
+        )
+        X_line = pd.DataFrame({feat: sorted(self.train_processed[feat].tolist())})
+        y_line = modelo.predict(X_line)
+        self.ax.plot(X_line, y_line, color="#dc2626", linewidth=2, label="Ajuste")
+        self.ax.set_xlabel(feat)
+        self.ax.set_ylabel(self.target_seleccionado)
+      else:
+        # Regresión múltiple: Valores Reales vs Predichos
+        self.ax.scatter(
+            y_train, y_pred_train, color="#2563a6", alpha=0.6, label="Train"
+        )
+        self.ax.scatter(
+            y_test, y_pred_test, color="#f97316", alpha=0.6, label="Test"
+        )
+        min_val = min(y_train.min(), y_test.min())
+        max_val = max(y_train.max(), y_test.max())
+        self.ax.plot(
+            [min_val, max_val],
+            [min_val, max_val],
+            color="#64748b",
+            linestyle="--",
+            label="Ideal (y=x)",
+        )
+        self.ax.set_xlabel("Valor Real")
+        self.ax.set_ylabel("Valor Predicho")
+
+      self.ax.legend()
+      self.ax.grid(True, linestyle=":", alpha=0.7)
+      self.fig.tight_layout()
+      self.canvas.draw()
+
+      QMessageBox.information(
+          self, "Éxito", "Modelo de regresión lineal creado y evaluado correctamente."
+      )
+
+    except Exception as e:
+      QMessageBox.critical(
+          self, "Error al crear el modelo", f"Ocurrió un error durante el entrenamiento: {str(e)}"
+      )
 
 
 def main():
@@ -555,4 +652,3 @@ def main():
 
 if __name__ == "__main__":
   main()
-  
