@@ -98,3 +98,187 @@ Tkinter y PySide6 / PyQt6.
 
 Se instala con:
     uv add pyside6
+
+#Investigación librería regresión lineal
+
+## 1. Comparativa de Librerías Investigadas
+
+Para seleccionar el enfoque adecuado se investigaron tres alternativas principales en el ecosistema Python:
+
+| Aspecto | `scikit-learn` | `statsmodels` | `numpy` (`lstsq` / `polyfit`) |
+| :--- | :--- | :--- | :--- |
+| **Facilidad de uso y documentación** :
+    Excelente. API orientada a objetos estandarizada (`fit`, `predict`), muy intuitiva y bien documentada.
+
+    Buena pero académica. Enfocada en estadística formal; requiere añadir la constante manualmente (`add_constant`).
+
+    Baja/Media. Nivel matemático puro. Requiere construir y manipular matrices a mano. |
+| **Regresión Simple y Múltiple** 
+     Misma sintaxis (`.fit(X, y)`) sin importar el número de variables de entrada.
+
+     Requiere definir fórmulas estilo R (vía `patsy`) o construir matrices de diseño explícitas. 
+
+     Requiere construir la matriz de diseño $X$ manualmente para regresión múltiple.
+| **Extracción de Coeficientes** :
+    Directa mediante atributos del modelo: `model.coef_` y `model.intercept_`. 
+    Directa tras el ajuste: `results.params`. 
+    Directa desde el vector de solución devuelto por el solver. 
+| **Métricas de Error** :
+    Integradas y directas mediante `sklearn.metrics` (`mean_squared_error`, `r2_score`). 
+
+    Incluidas en el resumen estadístico (`summary()`), aunque algunas métricas requieren cálculo adicional. 
+
+    No disponibles de forma nativa; deben implementarse manualmente con fórmulas matemáticas.
+
+| **Instalación en el proyecto (`uv`)** :
+    `uv add scikit-learn pandas` 
+    `uv add statsmodels pandas` 
+    `uv add numpy pandas` 
+
+---
+
+## 2. Librería Seleccionada y Justificación
+
+### **Selección:** `scikit-learn`
+
+### **Justificación:**
+1. **Estándar de la industria y mantenibilidad:** Su interfaz unificada (`fit`, `predict`, `score`) facilita la incorporación de nuevos desarrolladores al equipo sin curvas de aprendizaje complejas.
+2. **simplicidad:** Permite escalar de regresión lineal simple a múltiple sin reescribir ni añadir complejidad a la estructura del código.
+3. **Ecosistema integrado:** Ofrece métricas nativas optimizadas para evaluar modelos en entornos de desarrollo y producción.
+
+---
+
+## 3. Gestión de Dependencias
+
+Se añadió `scikit-learn` como dependencia oficial del proyecto ejecutando:
+
+```bash
+uv add scikit-learn pandas numpy
+
+## 4. Procedimiento de release
+
+Pasos para publicar una versión (ejemplo con `v0.1.0`; sustituir por la versión que toque). Ejecutar los comandos **uno por uno**: en PowerShell antiguo `&&` no funciona.
+
+### 4.1 Requisitos previos
+
+- Las historias de la versión están terminadas y fusionadas en `dev`.
+- Todas las pruebas pasan sobre `dev`:
+  ```powershell
+  git checkout dev
+  git pull
+  uv run pytest
+  ```
+- Un miembro del equipo que **no** haya implementado esas historias prueba el flujo con un dataset de `data/` (cargar, seleccionar columnas, separar, preprocesar). Los errores se corrigen en ramas `fix/...` hacia `dev` antes de continuar.
+- El `README.md` describe las funcionalidades de la versión y cómo ejecutarla, y el comando indicado funciona.
+
+### 4.2 Actualizar la versión
+
+Comprobar que `version` en `pyproject.toml` coincide con la versión a publicar (SemVer: `0.x.y` = en desarrollo). Si no coincide:
+
+```powershell
+git checkout dev
+git pull
+git checkout -b chore/version-0.1.0
+# editar pyproject.toml
+git add pyproject.toml
+git commit -m "chore: actualizar versión a 0.1.0"
+git push -u origin chore/version-0.1.0
+```
+
+Abrir una Pull Request hacia `dev` y fusionarla.
+
+> **Aviso:** al crear una Pull Request, GitHub puede proponer `main` como base. Comprobar siempre que la base es `dev`. La única fusión hacia `main` es la de `dev` en una release.
+
+### 4.3 Fusionar `dev` en `main`
+
+```powershell
+git checkout dev
+git pull
+git checkout
+
+main
+git pull
+git merge dev
+git push origin main
+````
+
+Git abre el editor con el mensaje del merge: guardar y **cerrar la pestaña `MERGE_MSG`** para que continúe. Comprobar con `git status` que el árbol está limpio.
+
+### 4.4 Crear y subir la etiqueta
+
+Desde `main`:
+
+```powershell
+git tag -a v0.1.0 -m "Versión 0.1.0"
+git push origin v0.1.0
+git --no-pager show v0.1.0
+git --no-pager ls-remote --tags origin
+```
+
+No mover ni borrar una etiqueta ya publicada: si hay un error, publicar una versión nueva.
+
+### 4.5 Alinear `dev` con `main`
+
+```powershell
+git checkout dev
+git merge main
+git push origin dev
+git diff main dev
+```
+
+El último comando no debe mostrar nada: `main` y `dev` contienen el mismo código. El desarrollo continúa en ramas creadas desde `dev`.
+
+### 4.6 Crear la release en GitHub
+
+1. Repositorio → **Releases** → **Draft a new release**.
+2. **Choose a tag**: `v0.1.0`. Título: `v0.1.0`.
+3. En **Release label**, marcar **Pre-release** mientras la aplicación no permita crear modelos.
+4. Pegar las notas (apartado 4.7) y pulsar **Publish release**.
+
+Si la release ya aparece creada como "Latest" con el mensaje del tag como único texto, pulsar el lápiz, cambiar a **Pre-release** y pegar las notas.
+
+### 4.7 Redactar las notas
+
+Sacar los commits de la versión:
+
+```powershell
+git --no-pager log --oneline --no-merges --grep="^feat"
+git --no-pager log --oneline --no-merges --grep="^fix"
+```
+
+Usar `--no-pager` evita el paginador (si se queda abierto, salir con `q`). Estructura de las notas:
+
+```markdown
+## WINAMAX v0.1.0 (pre-release)
+
+Descripción breve de la aplicación y del estado del proyecto.
+
+### Funcionalidades
+- (commits feat)
+
+### Correcciones
+- (commits fix, o "Ninguna en esta versión")
+
+### Pendiente para próximas versiones
+- (funcionalidades que faltan)
+
+### Documentación
+[README.md de esta versión](https://github.com/telmocl/WINAMAX/blob/v0.1.0/README.md)
+```
+
+### 4.8 Comprobar la descarga
+
+Un miembro del equipo con acceso al repositorio (es privado):
+
+1. Descargar **Source code (zip)** desde la release.
+2. Descomprimirlo en una carpeta **nueva**, fuera del proyecto de trabajo.
+3. Ejecutar:
+   ```powershell
+   uv sync
+   uv run <comando indicado en el README.md>
+   ```
+4. Confirmar que la aplicación arranca como describe el `README.md`.
+
+Si algo falla, no se modifica la etiqueta: se corrige en una rama `fix/...` desde `dev` y se publica una versión nueva.
+````
+
