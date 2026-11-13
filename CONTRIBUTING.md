@@ -17,9 +17,11 @@
 
 ### Reglas de fusión
 
-- Antes de fusionar una rama (`feature`, `fix` o `docs`) en `dev`: actualizarla con
-  los últimos cambios de `dev` y ejecutar `uv run pytest`. Solo se fusiona si todas pasan.
-- `dev` solo se fusiona en `main` si todas las pruebas pasan sobre `dev`.
+## Reglas de Fusión y CI
+
+- Hacia `dev`:** Una rama de trabajo (`feature`, `fix` o `docs`) solo se puede fusionar en `dev` si todas las pruebas pasan en local (`uv run pytest`) y la última ejecución del flujo de trabajo en GitHub Actions ha terminado en verde (sin errores).
+- Verificación tras fusión:** Después de cada fusión en `dev`, se debe comprobar en la pestaña *Actions* que la ejecución sobre `dev` también finaliza correctamente. Si falla, se abrirá una tarea y rama `fix/` para corregirlo antes de seguir fusionando.
+- Hacia `main`: La rama `dev` solo se fusionará en `main` si su última ejecución en GitHub Actions ha terminado con éxito.
 
 ## Estilo de código
 
