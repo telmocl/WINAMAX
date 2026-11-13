@@ -1,9 +1,4 @@
-"""Interfaz gráfica para cargar, revisar datasets y seleccionar variables.
-
-La lectura de archivos la hace winamax.data_loader; la validación de
-columnas la hace winamax.selector_logic; la separación winamax.separacion_logica;
-el preprocesamiento de nulos winamax.preprocessing y el modelo winamax.modelo_logica.
-"""
+"""Interfaz gráfica para cargar, revisar datasets y seleccionar variables."""
 
 import sys
 from pathlib import Path
@@ -31,12 +26,13 @@ from PySide6.QtWidgets import (
     QTableWidget,
     QTableWidgetItem,
     QTableView,
+    QTextEdit,
     QVBoxLayout,
     QWidget,
 )
 
 from winamax.data_loader import DataLoaderError, load_data
-from winamax.modelo_logica import entrenar_modelo_lineal
+from winamax.modelo_logica import ModeloInfo, entrenar_modelo_lineal
 from winamax.separacion_logica import realizar_separacion_datos
 from winamax.selector_logic import validar_seleccion_columnas
 
@@ -129,7 +125,7 @@ class VentanaPrincipal(QMainWindow):
         background-color: #cbd5e1;
         color: #64748b;
       }
-      QLineEdit, QComboBox, QListWidget, QTableView, QTableWidget {
+      QLineEdit, QComboBox, QListWidget, QTableView, QTableWidget, QTextEdit {
         background-color: #ffffff;
         border: 1px solid #cbd5e1;
         border-radius: 5px;
@@ -137,7 +133,7 @@ class VentanaPrincipal(QMainWindow):
         selection-background-color: #dbeafe;
         selection-color: #1e3a5f;
       }
-      QLineEdit:focus, QComboBox:focus, QListWidget:focus, QTableView:focus {
+      QLineEdit:focus, QComboBox:focus, QListWidget:focus, QTableView:focus, QTextEdit:focus {
         border: 1px solid #4b8ac6;
       }
       QTableView, QTableWidget {
@@ -172,10 +168,10 @@ class VentanaPrincipal(QMainWindow):
     self.train_df: pd.DataFrame | None = None
     self.test_df: pd.DataFrame | None = None
     
-    # Datos preprocesados finales listos para el modelo
+    # Datos preprocesados y modelo
     self.train_processed: pd.DataFrame | None = None
     self.test_processed: pd.DataFrame | None = None
-    self.modelo_entrenado = None
+    self.modelo_info: ModeloInfo | None = None
 
     area_desplazable = QScrollArea()
     area_desplazable.setWidgetResizable(True)
@@ -289,20 +285,18 @@ class VentanaPrincipal(QMainWindow):
     self.lbl_info_nulos.setWordWrap(True)
     layout_preproc.addWidget(self.lbl_info_nulos)
 
-    # Opciones de estrategia
     layout_estrategias = QVBoxLayout()
     self.rb_drop = QRadioButton("Eliminar las filas que contengan valores inexistentes")
     self.rb_mean = QRadioButton("Rellenar con la media de cada columna (Train)")
     self.rb_median = QRadioButton("Rellenar con la mediana de cada columna (Train)")
     self.rb_constant = QRadioButton("Rellenar con un valor constante:")
     
-    self.rb_mean.setChecked(True)  # Por defecto
+    self.rb_mean.setChecked(True)
 
     layout_estrategias.addWidget(self.rb_drop)
     layout_estrategias.addWidget(self.rb_mean)
     layout_estrategias.addWidget(self.rb_median)
     
-    # Sublayout para constante
     layout_constante = QHBoxLayout()
     layout_constante.addWidget(self.rb_constant)
     self.input_constante = QLineEdit()
@@ -339,6 +333,15 @@ class VentanaPrincipal(QMainWindow):
     self.lbl_formula.setWordWrap(True)
     self.lbl_formula.setStyleSheet("color: #1e3a5f; margin-top: 6px;")
     layout_modelo.addWidget(self.lbl_formula)
+
+    # Área de texto para Descripción del modelo (Opcional)
+    layout_modelo.addWidget(QLabel("<b>Descripción (opcional):</b>"))
+    self.txt_descripcion = QTextEdit()
+    self.txt_descripcion.setPlaceholderText("Escriba aquí una descripción o propósito de este modelo...")
+    self.txt_descripcion.setMaximumHeight(80)
+    self.txt_descripcion.setEnabled(False)  # Deshabilitada por defecto hasta que se crea/carga un modelo
+    self.txt_descripcion.textChanged.connect(self.actualizar_descripcion_modelo)
+    layout_modelo.addWidget(self.txt_descripcion)
 
     # Métricas de error (Tabla compacta)
     layout_modelo.addWidget(QLabel("Métricas de Error:"))
@@ -396,8 +399,11 @@ class VentanaPrincipal(QMainWindow):
     self.test_df = None
     self.train_processed = None
     self.test_processed = None
-    self.modelo_entrenado = None
+    self.modelo_info = None
     
+    self.txt_descripcion.clear()
+    self.txt_descripcion.setEnabled(False)
+
     self.grupo_split.setEnabled(False)
     self.grupo_preproc.setEnabled(False)
     self.grupo_modelo.setEnabled(False)
@@ -424,8 +430,11 @@ class VentanaPrincipal(QMainWindow):
       self.test_df = None
       self.train_processed = None
       self.test_processed = None
-      self.modelo_entrenado = None
+      self.modelo_info = None
       
+      self.txt_descripcion.clear()
+      self.txt_descripcion.setEnabled(False)
+
       self.grupo_split.setEnabled(True)
       self.grupo_preproc.setEnabled(False)
       self.grupo_modelo.setEnabled(False)
@@ -467,10 +476,12 @@ class VentanaPrincipal(QMainWindow):
     self.test_df = test_df
     self.train_processed = None
     self.test_processed = None
-    self.modelo_entrenado = None
+    self.modelo_info = None
+    
+    self.txt_descripcion.clear()
+    self.txt_descripcion.setEnabled(False)
     self.grupo_modelo.setEnabled(False)
 
-    # Detectar nulos
     columnas_modelo = self.features_seleccionadas + [self.target_seleccionado]
     resultado_nulos = detectar_nulos(self.train_df, self.test_df, columnas_modelo)
     train_m = resultado_nulos["train"]
@@ -547,7 +558,9 @@ class VentanaPrincipal(QMainWindow):
 
     self.train_processed = train_res
     self.test_processed = test_res
-    self.modelo_entrenado = None
+    self.modelo_info = None
+    self.txt_descripcion.clear()
+    self.txt_descripcion.setEnabled(False)
 
     QMessageBox.information(self, "Preprocesamiento Exitoso", msg_exito)
 
@@ -559,13 +572,18 @@ class VentanaPrincipal(QMainWindow):
     else:
       self.grupo_modelo.setEnabled(False)
 
+  def actualizar_descripcion_modelo(self):
+    """Sincroniza el contenido del área de texto con la estructura de datos del modelo."""
+    if self.modelo_info is not None:
+      self.modelo_info.descripcion = self.txt_descripcion.toPlainText()
+
   def crear_modelo(self):
     if self.train_processed is None or self.test_processed is None:
       QMessageBox.warning(self, "Error", "Los datos procesados no están listos.")
       return
 
     try:
-      modelo, metricas, formula, (y_train, y_pred_train, y_test, y_pred_test) = (
+      modelo_info, (y_train, y_pred_train, y_test, y_pred_test) = (
           entrenar_modelo_lineal(
               self.train_processed,
               self.test_processed,
@@ -573,12 +591,19 @@ class VentanaPrincipal(QMainWindow):
               self.target_seleccionado,
           )
       )
-      self.modelo_entrenado = modelo
+      self.modelo_info = modelo_info
+
+      # Limpiar y vaciar el área de texto para el nuevo modelo e habilitarla
+      self.txt_descripcion.blockSignals(True)
+      self.txt_descripcion.setText(self.modelo_info.descripcion)
+      self.txt_descripcion.blockSignals(False)
+      self.txt_descripcion.setEnabled(True)
 
       # Mostrar fórmula matemática
-      self.lbl_formula.setText(f"<b>Fórmula:</b> {formula}")
+      self.lbl_formula.setText(f"<b>Fórmula:</b> {modelo_info.formula}")
 
       # Mostrar métricas en la tabla de resultados
+      metricas = modelo_info.metricas
       self.tabla_metricas.setItem(0, 0, QTableWidgetItem(f"{metricas['r2_train']:.4f}"))
       self.tabla_metricas.setItem(1, 0, QTableWidgetItem(f"{metricas['mse_train']:.4f}"))
       self.tabla_metricas.setItem(0, 1, QTableWidgetItem(f"{metricas['r2_test']:.4f}"))
@@ -587,7 +612,6 @@ class VentanaPrincipal(QMainWindow):
       # Dibujar gráfico de ajuste con Matplotlib
       self.ax.clear()
       if len(self.features_seleccionadas) == 1:
-        # Regresión simple: Dispersión Train/Test + Línea de ajuste
         feat = self.features_seleccionadas[0]
         self.ax.scatter(
             self.train_processed[feat],
@@ -604,12 +628,11 @@ class VentanaPrincipal(QMainWindow):
             label="Test",
         )
         X_line = pd.DataFrame({feat: sorted(self.train_processed[feat].tolist())})
-        y_line = modelo.predict(X_line)
+        y_line = modelo_info.modelo.predict(X_line)
         self.ax.plot(X_line, y_line, color="#dc2626", linewidth=2, label="Ajuste")
         self.ax.set_xlabel(feat)
         self.ax.set_ylabel(self.target_seleccionado)
       else:
-        # Regresión múltiple: Valores Reales vs Predichos
         self.ax.scatter(
             y_train, y_pred_train, color="#2563a6", alpha=0.6, label="Train"
         )
