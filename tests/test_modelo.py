@@ -11,19 +11,19 @@ def test_generar_formula_negativa():
 
 
 def test_entrenar_modelo_exitoso():
-  df = pd.DataFrame(
-      {
-          "x1": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-          "y": [2, 4, 6, 8, 10, 12, 14, 16, 18, 20],
-      }
-  )
-  train = df.iloc[:8]
-  test = df.iloc[8:]
+    df = pd.DataFrame(
+        {
+            "x1": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+            "y": [2, 4, 6, 8, 10, 12, 14, 16, 18, 20],
+        }
+    )
+    train = df.iloc[:8]
+    test = df.iloc[8:]
 
-  modelo, metricas, formula, preds = entrenar_modelo_lineal(
-      train, test, ["x1"], "y"
-  )
+    modelo_info, _ = entrenar_modelo_lineal(
+        train, test, ["x1"], "y"
+    )
 
-  assert modelo is not None
-  assert metricas["r2_train"] > 0.99
-  assert "y =" in formula
+    assert modelo_info.modelo is not None
+    assert modelo_info.metricas["r2_train"] > 0.99
+    assert "y =" in modelo_info.formula
