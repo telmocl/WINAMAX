@@ -359,6 +359,9 @@ class VentanaPrincipal(QMainWindow):
 
     layout_principal.addWidget(self.grupo_modelo)
 
+    self._inicializar_panel_prediccion()
+    layout_principal.addWidget(self.grupo_prediccion)
+
   def seleccionar_archivo(self):
     archivo, _ = QFileDialog.getOpenFileName(
         self, "Seleccionar dataset", "", FILTRO_ARCHIVOS
@@ -665,6 +668,85 @@ class VentanaPrincipal(QMainWindow):
           self, "Error al crear el modelo", f"Ocurrió un error durante el entrenamiento: {str(e)}"
       )
 
+
+
+  def _inicializar_panel_prediccion(self):
+      """Crea el panel de predicción (inicialmente deshabilitado)."""
+      self.grupo_prediccion = QGroupBox("Realizar predicción")
+      self.grupo_prediccion.setEnabled(False)
+
+      layout_principal_pred = QVBoxLayout(self.grupo_prediccion)
+      self.form_prediccion = QFormLayout()
+      layout_principal_pred.addLayout(self.form_prediccion)
+
+      self.btn_predecir = QPushButton("Realizar predicción")
+      self.btn_predecir.clicked.connect(self._on_click_realizar_prediccion)
+      layout_principal_pred.addWidget(self.btn_predecir)
+
+      self.lbl_resultado_prediccion = QLabel("")
+      layout_principal_pred.addWidget(self.lbl_resultado_prediccion)
+
+      self.inputs_prediccion: dict[str, QLineEdit] = {}
+
+      # Si tienes un layout principal en tu ventana, descomenta la siguiente línea 
+      # para que el panel sea visible en la interfaz:
+      # self.layout_principal.addWidget(self.grupo_prediccion)
+
+  def configurar_campos_prediccion(self, columnas_entrada: list[str]):
+      """Regenera los inputs dinámicamente según las variables del modelo."""
+      while self.form_prediccion.rowCount() > 0:
+          self.form_prediccion.removeRow(0)
+      self.inputs_prediccion.clear()
+      self.lbl_resultado_prediccion.setText("")
+
+      for col in columnas_entrada:
+          campo = QLineEdit()
+          campo.setPlaceholderText(f"Valor para {col}")
+          self.form_prediccion.addRow(f"{col}:", campo)
+          self.inputs_prediccion[col] = campo
+
+      self.grupo_prediccion.setEnabled(True)
+
+  def _on_click_realizar_prediccion(self):
+      """Valida entradas, calcula la predicción y muestra el resultado."""
+      if not hasattr(self, "modelo_info") or not self.modelo_info:
+          return
+
+      from winamax.prediccion import calcular_prediccion
+
+      valores_validos = {}
+      faltantes = []
+      invalidos = []
+
+      for col, campo in self.inputs_prediccion.items():
+          texto = campo.text().strip()
+          if not texto:
+              faltantes.append(col)
+              continue
+
+          # Acepta tanto punto como coma como separador decimal
+          texto_norm = texto.replace(",", ".")
+          try:
+              valores_validos[col] = float(texto_norm)
+          except ValueError:
+              invalidos.append(col)
+
+      if faltantes or invalidos:
+          mensajes = []
+          if faltantes:
+              mensajes.append(f"Faltan valores en: {', '.join(faltantes)}")
+          if invalidos:
+              mensajes.append(f"Valores no numéricos en: {', '.join(invalidos)}")
+          QMessageBox.warning(self, "Error de validación", "\n".join(mensajes))
+          return
+
+      try:
+          resultado = calcular_prediccion(self.modelo_info, valores_validos)
+          col_salida = self.modelo_info["columna_salida"]
+          decimales = self.modelo_info.get("decimales", 4)
+          self.lbl_resultado_prediccion.setText(f"{col_salida} = {resultado:.{decimales}f}")
+      except Exception as e:
+          QMessageBox.critical(self, "Error", f"Ocurrió un error al calcular:\n{e}")
 
 def main():
   app = QApplication(sys.argv)
