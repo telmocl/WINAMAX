@@ -34,6 +34,7 @@ from PySide6.QtWidgets import (
 
 from winamax.data_loader import DataLoaderError, load_data
 from winamax.modelo_logica import ModeloInfo, entrenar_modelo_lineal
+from winamax.persistencia import EXTENSION, asegurar_extension, guardar_modelo
 from winamax.separacion_logica import realizar_separacion_datos
 from winamax.selector_logic import validar_seleccion_columnas
 
@@ -353,6 +354,14 @@ class VentanaPrincipal(QMainWindow):
     self.tabla_metricas.horizontalHeader().setStretchLastSection(True)
     layout_modelo.addWidget(self.tabla_metricas)
 
+
+    self.btn_guardar = QPushButton("Guardar modelo")
+    self.btn_guardar.setMinimumHeight(36)
+    self.btn_guardar.setMaximumWidth(260)
+    self.btn_guardar.setEnabled(False)
+    self.btn_guardar.clicked.connect(self.guardar_modelo_disco)
+    layout_modelo.addWidget(self.btn_guardar, alignment=Qt.AlignLeft)
+
     # Gráfico de ajuste embebido con Matplotlib
     self.fig, self.ax = plt.subplots(figsize=(6, 3.5))
     self.canvas = FigureCanvas(self.fig)
@@ -403,7 +412,9 @@ class VentanaPrincipal(QMainWindow):
     self.test_df = None
     self.train_processed = None
     self.test_processed = None
-    self.modelo_info = None
+    self.modelo_info = None 
+    
+    self._actualizar_boton_guardar()
     
     self.txt_descripcion.clear()
     self.txt_descripcion.setEnabled(False)
@@ -435,6 +446,7 @@ class VentanaPrincipal(QMainWindow):
       self.train_processed = None
       self.test_processed = None
       self.modelo_info = None
+      self._actualizar_boton_guardar()
       
       self.txt_descripcion.clear()
       self.txt_descripcion.setEnabled(False)
@@ -481,6 +493,7 @@ class VentanaPrincipal(QMainWindow):
     self.train_processed = None
     self.test_processed = None
     self.modelo_info = None
+    self._actualizar_boton_guardar()
     
     self.txt_descripcion.clear()
     self.txt_descripcion.setEnabled(False)
@@ -563,6 +576,7 @@ class VentanaPrincipal(QMainWindow):
     self.train_processed = train_res
     self.test_processed = test_res
     self.modelo_info = None
+    self._actualizar_boton_guardar()
     self.txt_descripcion.clear()
     self.txt_descripcion.setEnabled(False)
 
@@ -580,7 +594,62 @@ class VentanaPrincipal(QMainWindow):
     """Sincroniza el contenido del área de texto con la estructura de datos del modelo."""
     if self.modelo_info is not None:
       self.modelo_info.descripcion = self.txt_descripcion.toPlainText()
+      
 
+  def _actualizar_boton_guardar(self):
+      self.btn_guardar.setEnabled(self.modelo_info is not None)
+
+
+  def guardar_modelo_disco(self):
+    if self.modelo_info is None:
+      return
+
+    if not self.modelo_info.descripcion.strip():
+      r = QMessageBox.question(
+          self, "Descripción vacía",
+          "El modelo no tiene descripción. ¿Guardar igualmente?",
+          QMessageBox.Yes | QMessageBox.Cancel, QMessageBox.Yes)
+      if r != QMessageBox.Yes:
+        return
+
+    ruta, _ = QFileDialog.getSaveFileName(
+        self, "Guardar modelo", "modelo" + EXTENSION,
+        f"Modelo (*{EXTENSION})")
+    if not ruta:
+      return
+
+    ruta_final = asegurar_extension(ruta)
+    if ruta_final != Path(ruta) and ruta_final.exists():
+      r = QMessageBox.question(
+          self, "Sobrescribir",
+          f"«{ruta_final.name}» ya existe. ¿Desea sobrescribirlo?")
+      if r != QMessageBox.Yes:
+        return
+
+    try:
+      guardada = guardar_modelo(self.modelo_info, ruta_final)
+    except PermissionError:
+      QMessageBox.critical(
+          self, "No se pudo guardar",
+          "No tiene permisos para escribir en esa carpeta. "
+          "Elija otra carpeta e inténtelo de nuevo.")
+      return
+    except OSError:
+      QMessageBox.critical(
+          self, "No se pudo guardar",
+          "No se pudo escribir el archivo. Compruebe que la carpeta existe "
+          "y que hay espacio en disco, o elija otra ubicación.")
+      return
+    except Exception:
+      QMessageBox.critical(
+          self, "No se pudo guardar",
+          "Ocurrió un error inesperado al guardar el modelo. "
+          "Inténtelo de nuevo o elija otra ubicación.")
+      return
+
+    QMessageBox.information(
+        self, "Modelo guardado", f"Modelo guardado en:\n{guardada}")
+    
   def crear_modelo(self):
     if self.train_processed is None or self.test_processed is None:
       QMessageBox.warning(self, "Error", "Los datos procesados no están listos.")
@@ -602,6 +671,7 @@ class VentanaPrincipal(QMainWindow):
       self.txt_descripcion.setText(self.modelo_info.descripcion)
       self.txt_descripcion.blockSignals(False)
       self.txt_descripcion.setEnabled(True)
+      self._actualizar_boton_guardar()
 
       # Mostrar fórmula matemática
       self.lbl_formula.setText(f"<b>Fórmula:</b> {modelo_info.formula}")
