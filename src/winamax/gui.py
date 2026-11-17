@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
     QFileDialog,
+    QFormLayout,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -33,6 +34,7 @@ from PySide6.QtWidgets import (
 
 from winamax.data_loader import DataLoaderError, load_data
 from winamax.modelo_logica import ModeloInfo, entrenar_modelo_lineal
+from winamax.persistencia import EXTENSION, asegurar_extension, guardar_modelo
 from winamax.separacion_logica import realizar_separacion_datos
 from winamax.selector_logic import validar_seleccion_columnas
 
@@ -352,12 +354,23 @@ class VentanaPrincipal(QMainWindow):
     self.tabla_metricas.horizontalHeader().setStretchLastSection(True)
     layout_modelo.addWidget(self.tabla_metricas)
 
+
+    self.btn_guardar = QPushButton("Guardar modelo")
+    self.btn_guardar.setMinimumHeight(36)
+    self.btn_guardar.setMaximumWidth(260)
+    self.btn_guardar.setEnabled(False)
+    self.btn_guardar.clicked.connect(self.guardar_modelo_disco)
+    layout_modelo.addWidget(self.btn_guardar, alignment=Qt.AlignLeft)
+
     # Gráfico de ajuste embebido con Matplotlib
     self.fig, self.ax = plt.subplots(figsize=(6, 3.5))
     self.canvas = FigureCanvas(self.fig)
     layout_modelo.addWidget(self.canvas)
 
     layout_principal.addWidget(self.grupo_modelo)
+
+    self._inicializar_panel_prediccion()
+    layout_principal.addWidget(self.grupo_prediccion)
 
   def seleccionar_archivo(self):
     archivo, _ = QFileDialog.getOpenFileName(
@@ -399,7 +412,9 @@ class VentanaPrincipal(QMainWindow):
     self.test_df = None
     self.train_processed = None
     self.test_processed = None
-    self.modelo_info = None
+    self.modelo_info = None 
+    
+    self._actualizar_boton_guardar()
     
     self.txt_descripcion.clear()
     self.txt_descripcion.setEnabled(False)
@@ -431,6 +446,7 @@ class VentanaPrincipal(QMainWindow):
       self.train_processed = None
       self.test_processed = None
       self.modelo_info = None
+      self._actualizar_boton_guardar()
       
       self.txt_descripcion.clear()
       self.txt_descripcion.setEnabled(False)
@@ -477,6 +493,7 @@ class VentanaPrincipal(QMainWindow):
     self.train_processed = None
     self.test_processed = None
     self.modelo_info = None
+    self._actualizar_boton_guardar()
     
     self.txt_descripcion.clear()
     self.txt_descripcion.setEnabled(False)
@@ -559,6 +576,7 @@ class VentanaPrincipal(QMainWindow):
     self.train_processed = train_res
     self.test_processed = test_res
     self.modelo_info = None
+    self._actualizar_boton_guardar()
     self.txt_descripcion.clear()
     self.txt_descripcion.setEnabled(False)
 
@@ -576,7 +594,62 @@ class VentanaPrincipal(QMainWindow):
     """Sincroniza el contenido del área de texto con la estructura de datos del modelo."""
     if self.modelo_info is not None:
       self.modelo_info.descripcion = self.txt_descripcion.toPlainText()
+      
 
+  def _actualizar_boton_guardar(self):
+      self.btn_guardar.setEnabled(self.modelo_info is not None)
+
+
+  def guardar_modelo_disco(self):
+    if self.modelo_info is None:
+      return
+
+    if not self.modelo_info.descripcion.strip():
+      r = QMessageBox.question(
+          self, "Descripción vacía",
+          "El modelo no tiene descripción. ¿Guardar igualmente?",
+          QMessageBox.Yes | QMessageBox.Cancel, QMessageBox.Yes)
+      if r != QMessageBox.Yes:
+        return
+
+    ruta, _ = QFileDialog.getSaveFileName(
+        self, "Guardar modelo", "modelo" + EXTENSION,
+        f"Modelo (*{EXTENSION})")
+    if not ruta:
+      return
+
+    ruta_final = asegurar_extension(ruta)
+    if ruta_final != Path(ruta) and ruta_final.exists():
+      r = QMessageBox.question(
+          self, "Sobrescribir",
+          f"«{ruta_final.name}» ya existe. ¿Desea sobrescribirlo?")
+      if r != QMessageBox.Yes:
+        return
+
+    try:
+      guardada = guardar_modelo(self.modelo_info, ruta_final)
+    except PermissionError:
+      QMessageBox.critical(
+          self, "No se pudo guardar",
+          "No tiene permisos para escribir en esa carpeta. "
+          "Elija otra carpeta e inténtelo de nuevo.")
+      return
+    except OSError:
+      QMessageBox.critical(
+          self, "No se pudo guardar",
+          "No se pudo escribir el archivo. Compruebe que la carpeta existe "
+          "y que hay espacio en disco, o elija otra ubicación.")
+      return
+    except Exception:
+      QMessageBox.critical(
+          self, "No se pudo guardar",
+          "Ocurrió un error inesperado al guardar el modelo. "
+          "Inténtelo de nuevo o elija otra ubicación.")
+      return
+
+    QMessageBox.information(
+        self, "Modelo guardado", f"Modelo guardado en:\n{guardada}")
+    
   def crear_modelo(self):
     if self.train_processed is None or self.test_processed is None:
       QMessageBox.warning(self, "Error", "Los datos procesados no están listos.")
@@ -598,6 +671,7 @@ class VentanaPrincipal(QMainWindow):
       self.txt_descripcion.setText(self.modelo_info.descripcion)
       self.txt_descripcion.blockSignals(False)
       self.txt_descripcion.setEnabled(True)
+      self._actualizar_boton_guardar()
 
       # Mostrar fórmula matemática
       self.lbl_formula.setText(f"<b>Fórmula:</b> {modelo_info.formula}")
@@ -665,6 +739,85 @@ class VentanaPrincipal(QMainWindow):
           self, "Error al crear el modelo", f"Ocurrió un error durante el entrenamiento: {str(e)}"
       )
 
+
+
+  def _inicializar_panel_prediccion(self):
+      """Crea el panel de predicción (inicialmente deshabilitado)."""
+      self.grupo_prediccion = QGroupBox("Realizar predicción")
+      self.grupo_prediccion.setEnabled(False)
+
+      layout_principal_pred = QVBoxLayout(self.grupo_prediccion)
+      self.form_prediccion = QFormLayout()
+      layout_principal_pred.addLayout(self.form_prediccion)
+
+      self.btn_predecir = QPushButton("Realizar predicción")
+      self.btn_predecir.clicked.connect(self._on_click_realizar_prediccion)
+      layout_principal_pred.addWidget(self.btn_predecir)
+
+      self.lbl_resultado_prediccion = QLabel("")
+      layout_principal_pred.addWidget(self.lbl_resultado_prediccion)
+
+      self.inputs_prediccion: dict[str, QLineEdit] = {}
+
+      # Si tienes un layout principal en tu ventana, descomenta la siguiente línea 
+      # para que el panel sea visible en la interfaz:
+      # self.layout_principal.addWidget(self.grupo_prediccion)
+
+  def configurar_campos_prediccion(self, columnas_entrada: list[str]):
+      """Regenera los inputs dinámicamente según las variables del modelo."""
+      while self.form_prediccion.rowCount() > 0:
+          self.form_prediccion.removeRow(0)
+      self.inputs_prediccion.clear()
+      self.lbl_resultado_prediccion.setText("")
+
+      for col in columnas_entrada:
+          campo = QLineEdit()
+          campo.setPlaceholderText(f"Valor para {col}")
+          self.form_prediccion.addRow(f"{col}:", campo)
+          self.inputs_prediccion[col] = campo
+
+      self.grupo_prediccion.setEnabled(True)
+
+  def _on_click_realizar_prediccion(self):
+      """Valida entradas, calcula la predicción y muestra el resultado."""
+      if not hasattr(self, "modelo_info") or not self.modelo_info:
+          return
+
+      from winamax.prediccion import calcular_prediccion
+
+      valores_validos = {}
+      faltantes = []
+      invalidos = []
+
+      for col, campo in self.inputs_prediccion.items():
+          texto = campo.text().strip()
+          if not texto:
+              faltantes.append(col)
+              continue
+
+          # Acepta tanto punto como coma como separador decimal
+          texto_norm = texto.replace(",", ".")
+          try:
+              valores_validos[col] = float(texto_norm)
+          except ValueError:
+              invalidos.append(col)
+
+      if faltantes or invalidos:
+          mensajes = []
+          if faltantes:
+              mensajes.append(f"Faltan valores en: {', '.join(faltantes)}")
+          if invalidos:
+              mensajes.append(f"Valores no numéricos en: {', '.join(invalidos)}")
+          QMessageBox.warning(self, "Error de validación", "\n".join(mensajes))
+          return
+
+      try:
+          resultado = calcular_prediccion(self.modelo_info, valores_validos)
+          col_salida = self.modelo_info["columna_salida"]
+          decimales = self.modelo_info.get("decimales", 4)
+          self.lbl_resultado_prediccion.setText(f"{col_salida} = {resultado:.{decimales}f}")
+      except Exception as e:
+          QMessageBox.critical(self, "Error", f"Ocurrió un error al calcular:\n{e}")
 
 def main():
   app = QApplication(sys.argv)
