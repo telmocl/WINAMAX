@@ -34,7 +34,7 @@ from PySide6.QtWidgets import (
 
 from winamax.data_loader import DataLoaderError, load_data
 from winamax.modelo_logica import ModeloInfo, entrenar_modelo_lineal
-from winamax.persistencia import EXTENSION, asegurar_extension, guardar_modelo
+from winamax.persistencia import EXTENSION, asegurar_extension, guardar_modelo, cargar_modelo
 from winamax.separacion_logica import realizar_separacion_datos
 from winamax.selector_logic import validar_seleccion_columnas
 
@@ -184,15 +184,21 @@ class VentanaPrincipal(QMainWindow):
     layout_principal.setContentsMargins(18, 18, 18, 18)
     layout_principal.setSpacing(12)
 
-    # --- 1. Selección de archivo ---
-    grupo_archivo = QGroupBox("Dataset")
+    # --- 1. Selección de archivo y Carga de Modelo ---
+    grupo_archivo = QGroupBox("Dataset / Modelo")
     layout_archivo = QHBoxLayout(grupo_archivo)
 
     self.btn_cargar = QPushButton("Cargar dataset")
     self.btn_cargar.setMinimumHeight(36)
-    self.btn_cargar.setMaximumWidth(180)
+    self.btn_cargar.setMaximumWidth(160)
     self.btn_cargar.clicked.connect(self.seleccionar_archivo)
     layout_archivo.addWidget(self.btn_cargar)
+
+    self.btn_cargar_modelo = QPushButton("Cargar modelo")
+    self.btn_cargar_modelo.setMinimumHeight(36)
+    self.btn_cargar_modelo.setMaximumWidth(160)
+    self.btn_cargar_modelo.clicked.connect(self.dialogo_cargar_modelo)
+    layout_archivo.addWidget(self.btn_cargar_modelo)
 
     self.lbl_ruta = QLabel("Ningún archivo cargado")
     self.lbl_ruta.setStyleSheet("color: #64748b;")
@@ -203,8 +209,8 @@ class VentanaPrincipal(QMainWindow):
     layout_principal.addWidget(grupo_archivo)
 
     # --- 2. Tabla de datos ---
-    grupo_tabla = QGroupBox("Datos")
-    layout_tabla = QVBoxLayout(grupo_tabla)
+    self.grupo_tabla = QGroupBox("Datos")
+    layout_tabla = QVBoxLayout(self.grupo_tabla)
 
     self.tabla = QTableView()
     self.tabla.setEditTriggers(QAbstractItemView.NoEditTriggers)
@@ -214,7 +220,7 @@ class VentanaPrincipal(QMainWindow):
     self.tabla.setMinimumHeight(190)
     layout_tabla.addWidget(self.tabla)
 
-    layout_principal.addWidget(grupo_tabla, stretch=1)
+    layout_principal.addWidget(self.grupo_tabla, stretch=1)
 
     # --- 3. Selección de Variables ---
     self.grupo_variables = QGroupBox("Selección de Variables para el Modelo")
@@ -336,12 +342,12 @@ class VentanaPrincipal(QMainWindow):
     self.lbl_formula.setStyleSheet("color: #1e3a5f; margin-top: 6px;")
     layout_modelo.addWidget(self.lbl_formula)
 
-    # Área de texto para Descripción del modelo (Opcional)
+    # Área de texto para Descripción del modelo
     layout_modelo.addWidget(QLabel("<b>Descripción (opcional):</b>"))
     self.txt_descripcion = QTextEdit()
     self.txt_descripcion.setPlaceholderText("Escriba aquí una descripción o propósito de este modelo...")
     self.txt_descripcion.setMaximumHeight(80)
-    self.txt_descripcion.setEnabled(False)  # Deshabilitada por defecto hasta que se crea/carga un modelo
+    self.txt_descripcion.setEnabled(False)
     self.txt_descripcion.textChanged.connect(self.actualizar_descripcion_modelo)
     layout_modelo.addWidget(self.txt_descripcion)
 
@@ -353,7 +359,6 @@ class VentanaPrincipal(QMainWindow):
     self.tabla_metricas.setMaximumHeight(95)
     self.tabla_metricas.horizontalHeader().setStretchLastSection(True)
     layout_modelo.addWidget(self.tabla_metricas)
-
 
     self.btn_guardar = QPushButton("Guardar modelo")
     self.btn_guardar.setMinimumHeight(36)
@@ -373,6 +378,17 @@ class VentanaPrincipal(QMainWindow):
     layout_principal.addWidget(self.grupo_prediccion)
 
   def seleccionar_archivo(self):
+    if self.modelo_info is not None:
+      resp = QMessageBox.question(
+          self,
+          "Descartar modelo",
+          "Tiene un modelo cargado o creado. Si carga un nuevo dataset se descartará. ¿Desea continuar?",
+          QMessageBox.Yes | QMessageBox.Cancel,
+          QMessageBox.Cancel
+      )
+      if resp != QMessageBox.Yes:
+        return
+
     archivo, _ = QFileDialog.getOpenFileName(
         self, "Seleccionar dataset", "", FILTRO_ARCHIVOS
     )
@@ -390,8 +406,14 @@ class VentanaPrincipal(QMainWindow):
 
     self.datos = datos
     self.ruta_actual = ruta
+    self.modelo_info = None  # Se descarta cualquier modelo anterior
+
     self.lbl_ruta.setText(str(ruta))
     self.lbl_ruta.setStyleSheet("color: #243247;")
+
+    # Volver a mostrar secciones de datos
+    self.grupo_tabla.setVisible(True)
+    self.grupo_variables.setEnabled(True)
 
     self.modelo_tabla = ModeloTabla(datos)
     self.tabla.setModel(self.modelo_tabla)
@@ -412,7 +434,6 @@ class VentanaPrincipal(QMainWindow):
     self.test_df = None
     self.train_processed = None
     self.test_processed = None
-    self.modelo_info = None 
     
     self._actualizar_boton_guardar()
     
@@ -422,6 +443,82 @@ class VentanaPrincipal(QMainWindow):
     self.grupo_split.setEnabled(False)
     self.grupo_preproc.setEnabled(False)
     self.grupo_modelo.setEnabled(False)
+    self.grupo_prediccion.setEnabled(False)
+
+  def dialogo_cargar_modelo(self):
+    if self.modelo_info is not None or self.datos is not None:
+      resp = QMessageBox.question(
+          self,
+          "Sustituir estado actual",
+          "¿Desea cargar un modelo guardado? Se perderá el estado actual de trabajo.",
+          QMessageBox.Yes | QMessageBox.Cancel,
+          QMessageBox.Cancel
+      )
+      if resp != QMessageBox.Yes:
+        return
+
+    archivo, _ = QFileDialog.getOpenFileName(
+        self, "Cargar modelo", "", f"Modelo (*{EXTENSION})"
+    )
+    if not archivo:
+      return
+
+    self.cargar_modelo_desde_archivo(Path(archivo))
+
+  def cargar_modelo_desde_archivo(self, ruta: Path):
+    ruta = ruta.resolve()
+    try:
+      modelo_info = cargar_modelo(ruta)
+    except Exception as e:
+      QMessageBox.critical(
+          self,
+          "Error al cargar el modelo",
+          f"El archivo está dañado, no tiene el formato esperado o le falta parte de la información.\n\nDetalle: {e}"
+      )
+      return
+
+    # Actualizar estado interno
+    self.modelo_info = modelo_info
+    self.ruta_actual = ruta
+    self.datos = None
+    self.train_df = None
+    self.test_df = None
+    self.train_processed = None
+    self.test_processed = None
+
+    self.lbl_ruta.setText(f"Modelo cargado: {ruta}")
+    self.lbl_ruta.setStyleSheet("color: #243247;")
+
+    # Ocultar secciones relacionadas con datos
+    self.grupo_tabla.setVisible(False)
+    self.grupo_variables.setEnabled(False)
+    self.grupo_split.setEnabled(False)
+    self.grupo_preproc.setEnabled(False)
+
+    # Mostrar información del modelo
+    self.lbl_formula.setText(f"<b>Fórmula:</b> {modelo_info.formula}")
+    
+    self.txt_descripcion.blockSignals(True)
+    self.txt_descripcion.setText(modelo_info.descripcion or "")
+    self.txt_descripcion.blockSignals(False)
+    self.txt_descripcion.setEnabled(True)
+
+    metricas = modelo_info.metricas
+    self.tabla_metricas.setItem(0, 0, QTableWidgetItem(f"{metricas.get('r2_train', 0):.4f}"))
+    self.tabla_metricas.setItem(1, 0, QTableWidgetItem(f"{metricas.get('mse_train', 0):.4f}"))
+    self.tabla_metricas.setItem(0, 1, QTableWidgetItem(f"{metricas.get('r2_test', 0):.4f}"))
+    self.tabla_metricas.setItem(1, 1, QTableWidgetItem(f"{metricas.get('mse_test', 0):.4f}"))
+
+    self.grupo_modelo.setEnabled(True)
+    self.btn_guardar.setEnabled(True)
+
+    # Configurar panel de predicción con las variables del modelo
+    columnas_entrada = getattr(modelo_info, "features", [])
+    if not columnas_entrada and "columnas_entrada" in modelo_info:
+        columnas_entrada = modelo_info["columnas_entrada"]
+    self.configurar_campos_prediccion(columnas_entrada)
+
+    QMessageBox.information(self, "Modelo cargado", "El modelo se ha cargado correctamente.")
 
   def confirmar_variables(self):
     if self.datos is None:
@@ -594,11 +691,9 @@ class VentanaPrincipal(QMainWindow):
     """Sincroniza el contenido del área de texto con la estructura de datos del modelo."""
     if self.modelo_info is not None:
       self.modelo_info.descripcion = self.txt_descripcion.toPlainText()
-      
 
   def _actualizar_boton_guardar(self):
       self.btn_guardar.setEnabled(self.modelo_info is not None)
-
 
   def guardar_modelo_disco(self):
     if self.modelo_info is None:
@@ -612,8 +707,11 @@ class VentanaPrincipal(QMainWindow):
       if r != QMessageBox.Yes:
         return
 
+    # Si se cargó desde un archivo, propone por defecto su carpeta y nombre
+    sugerencia = str(self.ruta_actual) if (self.ruta_actual and not self.datos) else ("modelo" + EXTENSION)
+
     ruta, _ = QFileDialog.getSaveFileName(
-        self, "Guardar modelo", "modelo" + EXTENSION,
+        self, "Guardar modelo", sugerencia,
         f"Modelo (*{EXTENSION})")
     if not ruta:
       return
@@ -628,6 +726,7 @@ class VentanaPrincipal(QMainWindow):
 
     try:
       guardada = guardar_modelo(self.modelo_info, ruta_final)
+      self.ruta_actual = guardada
     except PermissionError:
       QMessageBox.critical(
           self, "No se pudo guardar",
@@ -665,25 +764,22 @@ class VentanaPrincipal(QMainWindow):
           )
       )
       self.modelo_info = modelo_info
+      self.ruta_actual = None
 
-      # Limpiar y vaciar el área de texto para el nuevo modelo e habilitarla
       self.txt_descripcion.blockSignals(True)
       self.txt_descripcion.setText(self.modelo_info.descripcion)
       self.txt_descripcion.blockSignals(False)
       self.txt_descripcion.setEnabled(True)
       self._actualizar_boton_guardar()
 
-      # Mostrar fórmula matemática
       self.lbl_formula.setText(f"<b>Fórmula:</b> {modelo_info.formula}")
 
-      # Mostrar métricas en la tabla de resultados
       metricas = modelo_info.metricas
       self.tabla_metricas.setItem(0, 0, QTableWidgetItem(f"{metricas['r2_train']:.4f}"))
       self.tabla_metricas.setItem(1, 0, QTableWidgetItem(f"{metricas['mse_train']:.4f}"))
       self.tabla_metricas.setItem(0, 1, QTableWidgetItem(f"{metricas['r2_test']:.4f}"))
       self.tabla_metricas.setItem(1, 1, QTableWidgetItem(f"{metricas['mse_test']:.4f}"))
 
-      # Dibujar gráfico de ajuste con Matplotlib
       self.ax.clear()
       if len(self.features_seleccionadas) == 1:
         feat = self.features_seleccionadas[0]
@@ -730,6 +826,9 @@ class VentanaPrincipal(QMainWindow):
       self.fig.tight_layout()
       self.canvas.draw()
 
+      # Configurar panel de predicción
+      self.configurar_campos_prediccion(self.features_seleccionadas)
+
       QMessageBox.information(
           self, "Éxito", "Modelo de regresión lineal creado y evaluado correctamente."
       )
@@ -739,10 +838,7 @@ class VentanaPrincipal(QMainWindow):
           self, "Error al crear el modelo", f"Ocurrió un error durante el entrenamiento: {str(e)}"
       )
 
-
-
   def _inicializar_panel_prediccion(self):
-      """Crea el panel de predicción (inicialmente deshabilitado)."""
       self.grupo_prediccion = QGroupBox("Realizar predicción")
       self.grupo_prediccion.setEnabled(False)
 
@@ -759,12 +855,7 @@ class VentanaPrincipal(QMainWindow):
 
       self.inputs_prediccion: dict[str, QLineEdit] = {}
 
-      # Si tienes un layout principal en tu ventana, descomenta la siguiente línea 
-      # para que el panel sea visible en la interfaz:
-      # self.layout_principal.addWidget(self.grupo_prediccion)
-
   def configurar_campos_prediccion(self, columnas_entrada: list[str]):
-      """Regenera los inputs dinámicamente según las variables del modelo."""
       while self.form_prediccion.rowCount() > 0:
           self.form_prediccion.removeRow(0)
       self.inputs_prediccion.clear()
@@ -779,7 +870,6 @@ class VentanaPrincipal(QMainWindow):
       self.grupo_prediccion.setEnabled(True)
 
   def _on_click_realizar_prediccion(self):
-      """Valida entradas, calcula la predicción y muestra el resultado."""
       if not hasattr(self, "modelo_info") or not self.modelo_info:
           return
 
@@ -795,7 +885,6 @@ class VentanaPrincipal(QMainWindow):
               faltantes.append(col)
               continue
 
-          # Acepta tanto punto como coma como separador decimal
           texto_norm = texto.replace(",", ".")
           try:
               valores_validos[col] = float(texto_norm)
@@ -813,8 +902,8 @@ class VentanaPrincipal(QMainWindow):
 
       try:
           resultado = calcular_prediccion(self.modelo_info, valores_validos)
-          col_salida = self.modelo_info["columna_salida"]
-          decimales = self.modelo_info.get("decimales", 4)
+          col_salida = self.modelo_info["columna_salida"] if isinstance(self.modelo_info, dict) else getattr(self.modelo_info, "columna_salida", "Salida")
+          decimales = self.modelo_info.get("decimales", 4) if isinstance(self.modelo_info, dict) else getattr(self.modelo_info, "decimales", 4)
           self.lbl_resultado_prediccion.setText(f"{col_salida} = {resultado:.{decimales}f}")
       except Exception as e:
           QMessageBox.critical(self, "Error", f"Ocurrió un error al calcular:\n{e}")
