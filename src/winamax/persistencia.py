@@ -64,7 +64,7 @@ def cargar_modelo(ruta: Path):
     # Reconstruir el objeto ModeloInfo o estructura equivalente
     modelo_info = ModeloInfo(modelo=datos["modelo"],
             features=datos["columnas_entrada"],
-            target=datos["columnas_salida"],
+            target=datos["columna_salida"],
             formula=datos["formula"],
             metricas=datos["metricas"],
             descripcion=datos.get("descripcion",""))
