@@ -50,3 +50,25 @@ def guardar_modelo(modelo_info, ruta) -> Path:
             os.remove(tmp)
         raise
     return ruta
+
+def cargar_modelo(ruta: Path):
+    """Carga un modelo guardado desde 'ruta' y devuelve una instancia de ModeloInfo"""
+    import joblib
+    from winamax.modelo_logica import ModeloInfo
+
+    datos=joblib.load(ruta)
+
+    if not isinstance(datos, dict) or "modelo" not in datos:
+        raise ValueError("El archivo no tiene el formato de modelo esperado.")
+
+    # Reconstruir el objeto ModeloInfo o estructura equivalente
+    modelo_info = ModeloInfo(modelo=datos["modelo"],
+            features=datos["columnas_entrada"],
+            target=datos["columnas_salida"],
+            formula=datos["formula"],
+            metricas=datos["metricas"],
+            descripcion=datos.get("descripcion",""))
+    
+    if "descripcion" in datos:
+        modelo_info.descripcion = datos["descripcion"]
+    return modelo_info
