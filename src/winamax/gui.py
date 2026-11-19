@@ -902,9 +902,17 @@ class VentanaPrincipal(QMainWindow):
 
       try:
           resultado = calcular_prediccion(self.modelo_info, valores_validos)
-          col_salida = self.modelo_info["columna_salida"] if isinstance(self.modelo_info, dict) else getattr(self.modelo_info, "columna_salida", "Salida")
-          decimales = self.modelo_info.get("decimales", 4) if isinstance(self.modelo_info, dict) else getattr(self.modelo_info, "decimales", 4)
-          self.lbl_resultado_prediccion.setText(f"{col_salida} = {resultado:.{decimales}f}")
+          col_salida = getattr(self.modelo_info, "columna_salida", None) or self.target_seleccionado or "Salida"
+          decimales = getattr(self.modelo_info, "decimales", 4)
+          if not isinstance(decimales, int):
+              decimales = 4
+
+          self.lbl_resultado_prediccion.setText(
+              f"{col_salida} = {resultado:.{decimales}f}"
+          )
+          self.lbl_resultado_prediccion.setVisible(True)
+          self.lbl_resultado_prediccion.show()
+          
       except Exception as e:
           QMessageBox.critical(self, "Error", f"Ocurrió un error al calcular:\n{e}")
 
