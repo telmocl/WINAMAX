@@ -1,12 +1,21 @@
 """Interfaz gráfica para cargar, revisar datasets y seleccionar variables."""
 
+import logging
 import sys
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 import pandas as pd
-from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt
+from PySide6.QtCore import (
+    QAbstractTableModel,
+    QModelIndex,
+    QObject,
+    Qt,
+    QThread,
+    Signal,
+)
+from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QApplication,
@@ -15,12 +24,14 @@ from PySide6.QtWidgets import (
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
+    QHeaderView,
     QLabel,
     QLineEdit,
     QListWidget,
     QListWidgetItem,
     QMainWindow,
     QMessageBox,
+    QProgressBar,
     QPushButton,
     QRadioButton,
     QScrollArea,
@@ -47,11 +58,23 @@ from winamax.utilidades import (
     preprocesar_constante,
 )
 
+logger = logging.getLogger(__name__)
+
 FILTRO_ARCHIVOS = "Datasets (*.csv *.xlsx *.xls *.sqlite *.db)"
+
+TEXTO_INICIO = (
+    "Para empezar, cargue un dataset para crear un modelo "
+    "o cargue un modelo guardado."
+)
 
 
 class ModeloTabla(QAbstractTableModel):
-  """Adapta un DataFrame de pandas para mostrarlo en un QTableView."""
+  """Adapta un DataFrame de pandas para mostrarlo en un QTableView.
+
+  Técnica para datasets grandes: scroll virtual. QTableView + un modelo
+  propio solo pide (data()) las celdas visibles en cada momento, por lo que
+  no se crean widgets ni items para las decenas de miles de filas.
+  """
 
   def __init__(self, datos: pd.DataFrame):
     super().__init__()
@@ -77,13 +100,40 @@ class ModeloTabla(QAbstractTableModel):
     return str(section + 1)
 
 
+class TrabajadorCarga(QObject):
+  """Carga un dataset en un hilo secundario para no bloquear la ventana."""
+
+  terminado = Signal(object)  # DataFrame cargado
+  fallido = Signal(str)       # mensaje apto para el usuario
+
+  def __init__(self, ruta: Path):
+    super().__init__()
+    self._ruta = ruta
+
+  def ejecutar(self):
+    try:
+      datos = load_data(self._ruta)
+    except DataLoaderError as e:
+      logger.warning("Error al cargar %s: %s", self._ruta, e)
+      self.fallido.emit(str(e))
+    except Exception:
+      logger.exception("Error inesperado al cargar %s", self._ruta)
+      self.fallido.emit("No se pudo leer el archivo.")
+    else:
+      self.terminado.emit(datos)
+
+
 class VentanaPrincipal(QMainWindow):
 
   def __init__(self):
     super().__init__()
     self.setWindowTitle("WINAMAX - Pipeline de Machine Learning")
-    self.resize(1000, 950)
-    self.setMinimumSize(760, 650)
+
+    # Tamaño inicial adaptado a la pantalla (válido para 1366x768).
+    pantalla = QGuiApplication.primaryScreen().availableGeometry()
+    self.resize(min(1000, pantalla.width()), min(720, pantalla.height()))
+    self.setMinimumSize(640, 480)
+
     self.setStyleSheet("""
       QMainWindow, QScrollArea, QWidget {
         background-color: #f5f7fa;
@@ -107,6 +157,9 @@ class VentanaPrincipal(QMainWindow):
         left: 12px;
         padding: 0 5px;
         color: #334b68;
+      }
+      QGroupBox:disabled {
+        color: #94a3b8;
       }
       QPushButton {
         background-color: #2563a6;
@@ -159,21 +212,43 @@ class VentanaPrincipal(QMainWindow):
         width: 15px;
         height: 15px;
       }
+      QStatusBar {
+        background-color: #edf2f7;
+        border-top: 1px solid #dce3ec;
+      }
+      QProgressBar {
+        border: 1px solid #cbd5e1;
+        border-radius: 4px;
+        background-color: #ffffff;
+        max-height: 14px;
+      }
+      QProgressBar::chunk {
+        background-color: #2563a6;
+      }
     """)
 
     # Estado del pipeline
     self.datos: pd.DataFrame | None = None
     self.ruta_actual: Path | None = None
+    self.nombre_dataset: str | None = None
     self.modelo_tabla: ModeloTabla | None = None
     self.features_seleccionadas: list[str] = []
     self.target_seleccionado: str | None = None
     self.train_df: pd.DataFrame | None = None
     self.test_df: pd.DataFrame | None = None
-    
+
     # Datos preprocesados y modelo
     self.train_processed: pd.DataFrame | None = None
     self.test_processed: pd.DataFrame | None = None
     self.modelo_info: ModeloInfo | None = None
+    self.modelo_origen: str | None = None   # "creado" | "cargado"
+    self.cambios_sin_guardar: bool = False
+
+    # Carga en segundo plano
+    self._hilo: QThread | None = None
+    self._trabajador: TrabajadorCarga | None = None
+    self._ruta_en_carga: Path | None = None
+    self._estados_previos: dict[QWidget, bool] = {}
 
     area_desplazable = QScrollArea()
     area_desplazable.setWidgetResizable(True)
@@ -185,7 +260,7 @@ class VentanaPrincipal(QMainWindow):
     layout_principal.setSpacing(12)
 
     # --- 1. Selección de archivo y Carga de Modelo ---
-    grupo_archivo = QGroupBox("Dataset / Modelo")
+    grupo_archivo = QGroupBox("1. Cargar datos (o cargar un modelo guardado)")
     layout_archivo = QHBoxLayout(grupo_archivo)
 
     self.btn_cargar = QPushButton("Cargar dataset")
@@ -200,7 +275,7 @@ class VentanaPrincipal(QMainWindow):
     self.btn_cargar_modelo.clicked.connect(self.dialogo_cargar_modelo)
     layout_archivo.addWidget(self.btn_cargar_modelo)
 
-    self.lbl_ruta = QLabel("Ningún archivo cargado")
+    self.lbl_ruta = QLabel(TEXTO_INICIO)
     self.lbl_ruta.setStyleSheet("color: #64748b;")
     self.lbl_ruta.setWordWrap(True)
     self.lbl_ruta.setTextInteractionFlags(Qt.TextSelectableByMouse)
@@ -208,7 +283,7 @@ class VentanaPrincipal(QMainWindow):
 
     layout_principal.addWidget(grupo_archivo)
 
-    # --- 2. Tabla de datos ---
+    # --- Tabla de datos ---
     self.grupo_tabla = QGroupBox("Datos")
     layout_tabla = QVBoxLayout(self.grupo_tabla)
 
@@ -218,12 +293,18 @@ class VentanaPrincipal(QMainWindow):
     self.tabla.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
     self.tabla.setAlternatingRowColors(True)
     self.tabla.setMinimumHeight(190)
+    # Filas de alto fijo y muestreo reducido para ajustar columnas:
+    # evita calcular el tamaño de decenas de miles de filas.
+    self.tabla.verticalHeader().setSectionResizeMode(QHeaderView.Fixed)
+    self.tabla.verticalHeader().setDefaultSectionSize(26)
+    self.tabla.horizontalHeader().setResizeContentsPrecision(200)
     layout_tabla.addWidget(self.tabla)
 
     layout_principal.addWidget(self.grupo_tabla, stretch=1)
 
-    # --- 3. Selección de Variables ---
-    self.grupo_variables = QGroupBox("Selección de Variables para el Modelo")
+    # --- 2. Selección de Variables ---
+    self.grupo_variables = QGroupBox("2. Seleccionar columnas")
+    self.grupo_variables.setEnabled(False)
     layout_grupo_vars = QVBoxLayout(self.grupo_variables)
 
     layout_dos_columnas = QHBoxLayout()
@@ -257,8 +338,8 @@ class VentanaPrincipal(QMainWindow):
 
     layout_principal.addWidget(self.grupo_variables)
 
-    # --- 4. Separación de Datos (Train / Test) ---
-    self.grupo_split = QGroupBox("Separación de Datos (Train / Test)")
+    # --- 3. Separación de Datos (Train / Test) ---
+    self.grupo_split = QGroupBox("3. Separar datos (Train / Test)")
     self.grupo_split.setEnabled(False)
     layout_split = QVBoxLayout(self.grupo_split)
 
@@ -284,8 +365,8 @@ class VentanaPrincipal(QMainWindow):
 
     layout_principal.addWidget(self.grupo_split)
 
-    # --- 5. Preprocesamiento de Valores Inexistentes ---
-    self.grupo_preproc = QGroupBox("Preprocesamiento de Valores Inexistentes")
+    # --- 4. Preprocesamiento de Valores Inexistentes ---
+    self.grupo_preproc = QGroupBox("4. Preprocesar valores inexistentes")
     self.grupo_preproc.setEnabled(False)
     layout_preproc = QVBoxLayout(self.grupo_preproc)
 
@@ -298,13 +379,13 @@ class VentanaPrincipal(QMainWindow):
     self.rb_mean = QRadioButton("Rellenar con la media de cada columna (Train)")
     self.rb_median = QRadioButton("Rellenar con la mediana de cada columna (Train)")
     self.rb_constant = QRadioButton("Rellenar con un valor constante:")
-    
+
     self.rb_mean.setChecked(True)
 
     layout_estrategias.addWidget(self.rb_drop)
     layout_estrategias.addWidget(self.rb_mean)
     layout_estrategias.addWidget(self.rb_median)
-    
+
     layout_constante = QHBoxLayout()
     layout_constante.addWidget(self.rb_constant)
     self.input_constante = QLineEdit()
@@ -325,11 +406,11 @@ class VentanaPrincipal(QMainWindow):
 
     layout_principal.addWidget(self.grupo_preproc)
 
-    # --- 6. Creación y Evaluación del Modelo ---
-    self.grupo_modelo = QGroupBox("Creación y Evaluación del Modelo")
+    # --- 5. Creación y Evaluación del Modelo ---
+    self.grupo_modelo = QGroupBox("5. Crear modelo")
     self.grupo_modelo.setEnabled(False)
     layout_modelo = QVBoxLayout(self.grupo_modelo)
-    
+
     self.btn_crear_modelo = QPushButton("Crear Modelo de Regresión Lineal")
     self.btn_crear_modelo.setMinimumHeight(36)
     self.btn_crear_modelo.setMaximumWidth(260)
@@ -370,6 +451,7 @@ class VentanaPrincipal(QMainWindow):
     # Gráfico de ajuste embebido con Matplotlib
     self.fig, self.ax = plt.subplots(figsize=(6, 3.5))
     self.canvas = FigureCanvas(self.fig)
+    self.canvas.setMinimumHeight(260)
     layout_modelo.addWidget(self.canvas)
 
     layout_principal.addWidget(self.grupo_modelo)
@@ -377,6 +459,91 @@ class VentanaPrincipal(QMainWindow):
     self._inicializar_panel_prediccion()
     layout_principal.addWidget(self.grupo_prediccion)
 
+    # --- Barra de estado ---
+    self.lbl_estado = QLabel()
+    self.statusBar().addWidget(self.lbl_estado, 1)
+    self.progreso = QProgressBar()
+    self.progreso.setRange(0, 0)  # indeterminada
+    self.progreso.setTextVisible(False)
+    self.progreso.setMaximumWidth(160)
+    self.progreso.setVisible(False)
+    self.statusBar().addPermanentWidget(self.progreso)
+    self._actualizar_barra_estado()
+
+    # Widgets que se bloquean mientras dura una operación larga
+    self._widgets_bloqueables = [
+        self.btn_cargar,
+        self.btn_cargar_modelo,
+        self.grupo_variables,
+        self.grupo_split,
+        self.grupo_preproc,
+        self.grupo_modelo,
+        self.grupo_prediccion,
+    ]
+
+  # ------------------------------------------------------------------
+  # Mensajes al usuario (siempre mediante ventanas emergentes)
+  # ------------------------------------------------------------------
+  def _exito(self, titulo: str, texto: str):
+    QMessageBox.information(self, titulo, texto)
+
+  def _aviso(self, titulo: str, texto: str):
+    QMessageBox.warning(self, titulo, texto)
+
+  def _error(self, titulo: str, texto: str):
+    QMessageBox.critical(self, titulo, texto)
+
+  # ------------------------------------------------------------------
+  # Estado de la aplicación
+  # ------------------------------------------------------------------
+  def _actualizar_barra_estado(self):
+    if self.datos is not None:
+      n_filas = f"{len(self.datos):,}".replace(",", ".")
+      dataset = f"{self.nombre_dataset} ({n_filas} filas)"
+    else:
+      dataset = "ninguno"
+
+    if self.modelo_info is not None:
+      modelo = self.modelo_origen or "creado"
+    else:
+      modelo = "ninguno"
+
+    if self.modelo_info is not None and self.cambios_sin_guardar:
+      cambios = "Modelo con cambios sin guardar"
+    else:
+      cambios = "Sin cambios pendientes"
+
+    self.lbl_estado.setText(
+        f"Dataset: {dataset}  |  Modelo: {modelo}  |  {cambios}"
+    )
+
+  def _descartar_modelo(self):
+    """Descarta el modelo actual y deja la descripción deshabilitada."""
+    self.modelo_info = None
+    self.modelo_origen = None
+    self.cambios_sin_guardar = False
+    self._actualizar_boton_guardar()
+    self.txt_descripcion.clear()
+    self.txt_descripcion.setEnabled(False)
+    self._actualizar_barra_estado()
+
+  def _bloquear_interfaz(self, bloquear: bool):
+    """Deshabilita (o restaura) los controles que iniciarían otra operación."""
+    if bloquear:
+      self._estados_previos = {w: w.isEnabled() for w in self._widgets_bloqueables}
+      for w in self._widgets_bloqueables:
+        w.setEnabled(False)
+      self.progreso.setVisible(True)
+    else:
+      for w, estado in self._estados_previos.items():
+        w.setEnabled(estado)
+      self._estados_previos = {}
+      self.progreso.setVisible(False)
+      self._actualizar_barra_estado()
+
+  # ------------------------------------------------------------------
+  # Carga de dataset (en segundo plano)
+  # ------------------------------------------------------------------
   def seleccionar_archivo(self):
     if self.modelo_info is not None:
       resp = QMessageBox.question(
@@ -398,15 +565,43 @@ class VentanaPrincipal(QMainWindow):
 
   def cargar_archivo(self, ruta: Path):
     ruta = ruta.resolve()
-    try:
-      datos = load_data(ruta)
-    except DataLoaderError as e:
-      QMessageBox.critical(self, "Error al cargar el archivo", str(e))
-      return
 
+    # Por seguridad: si quedara un hilo anterior terminando, esperarlo.
+    if self._hilo is not None and self._hilo.isRunning():
+      self._hilo.wait()
+
+    self._ruta_en_carga = ruta
+    self._bloquear_interfaz(True)
+    self.lbl_estado.setText(f"Cargando «{ruta.name}»... Espere, por favor.")
+
+    self._hilo = QThread(self)
+    self._trabajador = TrabajadorCarga(ruta)
+    self._trabajador.moveToThread(self._hilo)
+
+    self._hilo.started.connect(self._trabajador.ejecutar)
+    self._trabajador.terminado.connect(self._carga_terminada)
+    self._trabajador.fallido.connect(self._carga_fallida)
+    self._trabajador.terminado.connect(self._hilo.quit)
+    self._trabajador.fallido.connect(self._hilo.quit)
+    self._hilo.start()
+
+  def _carga_terminada(self, datos):
+    self._bloquear_interfaz(False)
+    self._aplicar_dataset(datos, self._ruta_en_carga)
+
+  def _carga_fallida(self, mensaje: str):
+    self._bloquear_interfaz(False)
+    self._error(
+        "No se pudo cargar el archivo",
+        f"{mensaje}\n\nCompruebe que el archivo no está dañado ni abierto en "
+        "otro programa y que su formato es compatible (CSV, Excel o SQLite). "
+        "Si el problema continúa, pruebe con otro archivo."
+    )
+
+  def _aplicar_dataset(self, datos: pd.DataFrame, ruta: Path):
     self.datos = datos
     self.ruta_actual = ruta
-    self.modelo_info = None  # Se descarta cualquier modelo anterior
+    self.nombre_dataset = ruta.name
 
     self.lbl_ruta.setText(str(ruta))
     self.lbl_ruta.setStyleSheet("color: #243247;")
@@ -434,17 +629,23 @@ class VentanaPrincipal(QMainWindow):
     self.test_df = None
     self.train_processed = None
     self.test_processed = None
-    
-    self._actualizar_boton_guardar()
-    
-    self.txt_descripcion.clear()
-    self.txt_descripcion.setEnabled(False)
+
+    self._descartar_modelo()  # Se descarta cualquier modelo anterior
 
     self.grupo_split.setEnabled(False)
     self.grupo_preproc.setEnabled(False)
     self.grupo_modelo.setEnabled(False)
     self.grupo_prediccion.setEnabled(False)
 
+  def closeEvent(self, event):
+    if self._hilo is not None and self._hilo.isRunning():
+      self._hilo.quit()
+      self._hilo.wait()
+    super().closeEvent(event)
+
+  # ------------------------------------------------------------------
+  # Carga de modelo
+  # ------------------------------------------------------------------
   def dialogo_cargar_modelo(self):
     if self.modelo_info is not None or self.datos is not None:
       resp = QMessageBox.question(
@@ -469,18 +670,22 @@ class VentanaPrincipal(QMainWindow):
     ruta = ruta.resolve()
     try:
       modelo_info = cargar_modelo(ruta)
-    except Exception as e:
-      QMessageBox.critical(
-          self,
-          "Error al cargar el modelo",
-          f"El archivo está dañado, no tiene el formato esperado o le falta parte de la información.\n\nDetalle: {e}"
+    except Exception:
+      logger.exception("Error al cargar el modelo %s", ruta)
+      self._error(
+          "No se pudo cargar el modelo",
+          "El archivo está dañado, no tiene el formato esperado o le falta "
+          "parte de la información. Seleccione otro archivo de modelo."
       )
       return
 
     # Actualizar estado interno
     self.modelo_info = modelo_info
+    self.modelo_origen = "cargado"
+    self.cambios_sin_guardar = False
     self.ruta_actual = ruta
     self.datos = None
+    self.nombre_dataset = None
     self.train_df = None
     self.test_df = None
     self.train_processed = None
@@ -497,7 +702,7 @@ class VentanaPrincipal(QMainWindow):
 
     # Mostrar información del modelo
     self.lbl_formula.setText(f"<b>Fórmula:</b> {modelo_info.formula}")
-    
+
     self.txt_descripcion.blockSignals(True)
     self.txt_descripcion.setText(modelo_info.descripcion or "")
     self.txt_descripcion.blockSignals(False)
@@ -518,11 +723,18 @@ class VentanaPrincipal(QMainWindow):
         columnas_entrada = modelo_info["columnas_entrada"]
     self.configurar_campos_prediccion(columnas_entrada)
 
-    QMessageBox.information(self, "Modelo cargado", "El modelo se ha cargado correctamente.")
+    self._actualizar_barra_estado()
+    self._exito("Modelo cargado", "El modelo se ha cargado correctamente.")
 
+  # ------------------------------------------------------------------
+  # Pasos del pipeline
+  # ------------------------------------------------------------------
   def confirmar_variables(self):
     if self.datos is None:
-      QMessageBox.warning(self, "Error", "Primero debes cargar un dataset válido.")
+      self._aviso(
+          "Falta el dataset",
+          "Primero cargue un dataset (paso 1) y después seleccione las columnas."
+      )
       return
 
     features = [item.text() for item in self.list_features.selectedItems()]
@@ -531,7 +743,7 @@ class VentanaPrincipal(QMainWindow):
     valido, mensaje = validar_seleccion_columnas(self.datos, features, target)
 
     if not valido:
-      QMessageBox.critical(self, "Error de Selección", mensaje)
+      self._error("Error de selección", mensaje)
       self.grupo_split.setEnabled(False)
       self.grupo_preproc.setEnabled(False)
       self.grupo_modelo.setEnabled(False)
@@ -542,19 +754,14 @@ class VentanaPrincipal(QMainWindow):
       self.test_df = None
       self.train_processed = None
       self.test_processed = None
-      self.modelo_info = None
-      self._actualizar_boton_guardar()
-      
-      self.txt_descripcion.clear()
-      self.txt_descripcion.setEnabled(False)
+      self._descartar_modelo()
 
       self.grupo_split.setEnabled(True)
       self.grupo_preproc.setEnabled(False)
       self.grupo_modelo.setEnabled(False)
-      
-      QMessageBox.information(
-          self,
-          "Selección Confirmada",
+
+      self._exito(
+          "Selección confirmada",
           f"<b>Variables confirmadas correctamente.</b><br><br>"
           f"<b>Entradas:</b> {', '.join(features)}<br>"
           f"<b>Salida:</b> {target}",
@@ -562,19 +769,30 @@ class VentanaPrincipal(QMainWindow):
 
   def ejecutar_separacion(self):
     if self.datos is None:
-      QMessageBox.warning(self, "Error", "No hay ningún dataset cargado.")
+      self._aviso(
+          "Falta el dataset",
+          "No hay ningún dataset cargado. Cárguelo en el paso 1 antes de separar los datos."
+      )
       return
 
     try:
       test_pct = float(self.input_test_pct.text())
     except ValueError:
-      QMessageBox.critical(self, "Error de Validación", "El porcentaje de test debe ser un número válido.")
+      self._error(
+          "Porcentaje de test no válido",
+          "El porcentaje de test debe ser un número (por ejemplo 20). "
+          "Corríjalo e inténtelo de nuevo."
+      )
       return
 
     try:
       seed = int(self.input_seed.text())
     except ValueError:
-      QMessageBox.critical(self, "Error de Validación", "La semilla (seed) debe ser un número entero.")
+      self._error(
+          "Semilla no válida",
+          "La semilla debe ser un número entero (por ejemplo 42). "
+          "Corríjala e inténtelo de nuevo."
+      )
       return
 
     train_df, test_df, mensaje = realizar_separacion_datos(
@@ -582,18 +800,14 @@ class VentanaPrincipal(QMainWindow):
     )
 
     if train_df is None or test_df is None:
-      QMessageBox.critical(self, "Error en la Separación", mensaje)
+      self._error("Error en la separación", mensaje)
       return
 
     self.train_df = train_df
     self.test_df = test_df
     self.train_processed = None
     self.test_processed = None
-    self.modelo_info = None
-    self._actualizar_boton_guardar()
-    
-    self.txt_descripcion.clear()
-    self.txt_descripcion.setEnabled(False)
+    self._descartar_modelo()
     self.grupo_modelo.setEnabled(False)
 
     columnas_modelo = self.features_seleccionadas + [self.target_seleccionado]
@@ -617,11 +831,14 @@ class VentanaPrincipal(QMainWindow):
     self.lbl_info_nulos.setText(info_texto)
     self.grupo_preproc.setEnabled(True)
 
-    QMessageBox.information(self, "Separación y Detección Exitosa", info_texto)
+    self._exito("Separación y detección exitosa", info_texto)
 
   def aplicar_preprocesamiento(self):
     if self.train_df is None or self.test_df is None:
-      QMessageBox.warning(self, "Error", "Debe separar los datos antes de preprocesar.")
+      self._aviso(
+          "Faltan datos separados",
+          "Debe separar los datos (paso 3) antes de preprocesar."
+      )
       return
 
     columnas_modelo = self.features_seleccionadas + [self.target_seleccionado]
@@ -629,12 +846,12 @@ class VentanaPrincipal(QMainWindow):
     try:
       if self.rb_drop.isChecked():
         train_res, test_res = preprocesar_eliminar_filas(self.train_df, self.test_df, columnas_modelo)
-        
+
         if train_res.empty or test_res.empty:
-          QMessageBox.warning(
-              self, 
-              "Aviso de Preprocesamiento", 
-              "La eliminación de filas dejaría vacío el conjunto de entrenamiento o el de test. No se aplicó el cambio."
+          self._aviso(
+              "Aviso de preprocesamiento",
+              "La eliminación de filas dejaría vacío el conjunto de entrenamiento o el de test. "
+              "No se aplicó el cambio. Pruebe con otra estrategia, por ejemplo rellenar con la media."
           )
           return
 
@@ -658,7 +875,11 @@ class VentanaPrincipal(QMainWindow):
         try:
           const_val = float(self.input_constante.text())
         except ValueError:
-          QMessageBox.critical(self, "Error de Validación", "El valor constante introducido no es numérico.")
+          self._error(
+              "Valor constante no válido",
+              "El valor constante debe ser un número (por ejemplo 0 o 3.5). "
+              "Corríjalo e inténtelo de nuevo."
+          )
           return
 
         train_res, test_res = preprocesar_constante(self.train_df, self.test_df, columnas_modelo, const_val)
@@ -666,18 +887,20 @@ class VentanaPrincipal(QMainWindow):
       else:
         return
 
-    except Exception as e:
-      QMessageBox.critical(self, "Error de Preprocesamiento", str(e))
+    except Exception:
+      logger.exception("Error durante el preprocesamiento")
+      self._error(
+          "Error de preprocesamiento",
+          "No se pudo aplicar el preprocesado. Compruebe que las columnas "
+          "seleccionadas son numéricas o pruebe con otra estrategia."
+      )
       return
 
     self.train_processed = train_res
     self.test_processed = test_res
-    self.modelo_info = None
-    self._actualizar_boton_guardar()
-    self.txt_descripcion.clear()
-    self.txt_descripcion.setEnabled(False)
+    self._descartar_modelo()
 
-    QMessageBox.information(self, "Preprocesamiento Exitoso", msg_exito)
+    self._exito("Preprocesamiento exitoso", msg_exito)
 
     nulos_restantes_train = train_res[columnas_modelo].isna().sum().sum()
     nulos_restantes_test = test_res[columnas_modelo].isna().sum().sum()
@@ -691,6 +914,8 @@ class VentanaPrincipal(QMainWindow):
     """Sincroniza el contenido del área de texto con la estructura de datos del modelo."""
     if self.modelo_info is not None:
       self.modelo_info.descripcion = self.txt_descripcion.toPlainText()
+      self.cambios_sin_guardar = True
+      self._actualizar_barra_estado()
 
   def _actualizar_boton_guardar(self):
       self.btn_guardar.setEnabled(self.modelo_info is not None)
@@ -728,30 +953,35 @@ class VentanaPrincipal(QMainWindow):
       guardada = guardar_modelo(self.modelo_info, ruta_final)
       self.ruta_actual = guardada
     except PermissionError:
-      QMessageBox.critical(
-          self, "No se pudo guardar",
+      self._error(
+          "No se pudo guardar",
           "No tiene permisos para escribir en esa carpeta. "
           "Elija otra carpeta e inténtelo de nuevo.")
       return
     except OSError:
-      QMessageBox.critical(
-          self, "No se pudo guardar",
+      self._error(
+          "No se pudo guardar",
           "No se pudo escribir el archivo. Compruebe que la carpeta existe "
           "y que hay espacio en disco, o elija otra ubicación.")
       return
     except Exception:
-      QMessageBox.critical(
-          self, "No se pudo guardar",
+      logger.exception("Error inesperado al guardar el modelo")
+      self._error(
+          "No se pudo guardar",
           "Ocurrió un error inesperado al guardar el modelo. "
           "Inténtelo de nuevo o elija otra ubicación.")
       return
 
-    QMessageBox.information(
-        self, "Modelo guardado", f"Modelo guardado en:\n{guardada}")
-    
+    self.cambios_sin_guardar = False
+    self._actualizar_barra_estado()
+    self._exito("Modelo guardado", f"Modelo guardado en:\n{guardada}")
+
   def crear_modelo(self):
     if self.train_processed is None or self.test_processed is None:
-      QMessageBox.warning(self, "Error", "Los datos procesados no están listos.")
+      self._aviso(
+          "Datos no preparados",
+          "Los datos procesados no están listos. Complete antes los pasos 3 y 4."
+      )
       return
 
     try:
@@ -764,6 +994,8 @@ class VentanaPrincipal(QMainWindow):
           )
       )
       self.modelo_info = modelo_info
+      self.modelo_origen = "creado"
+      self.cambios_sin_guardar = True
       self.ruta_actual = None
 
       self.txt_descripcion.blockSignals(True)
@@ -771,6 +1003,7 @@ class VentanaPrincipal(QMainWindow):
       self.txt_descripcion.blockSignals(False)
       self.txt_descripcion.setEnabled(True)
       self._actualizar_boton_guardar()
+      self._actualizar_barra_estado()
 
       self.lbl_formula.setText(f"<b>Fórmula:</b> {modelo_info.formula}")
 
@@ -829,17 +1062,24 @@ class VentanaPrincipal(QMainWindow):
       # Configurar panel de predicción
       self.configurar_campos_prediccion(self.features_seleccionadas)
 
-      QMessageBox.information(
-          self, "Éxito", "Modelo de regresión lineal creado y evaluado correctamente."
+      self._exito(
+          "Modelo creado", "Modelo de regresión lineal creado y evaluado correctamente."
       )
 
-    except Exception as e:
-      QMessageBox.critical(
-          self, "Error al crear el modelo", f"Ocurrió un error durante el entrenamiento: {str(e)}"
+    except Exception:
+      logger.exception("Error al crear el modelo")
+      self._error(
+          "No se pudo crear el modelo",
+          "Ocurrió un error durante el entrenamiento. Compruebe que las columnas "
+          "seleccionadas son numéricas y que hay datos suficientes en entrenamiento "
+          "y test. Si el problema continúa, repita los pasos desde la selección de columnas."
       )
 
+  # ------------------------------------------------------------------
+  # Predicción
+  # ------------------------------------------------------------------
   def _inicializar_panel_prediccion(self):
-      self.grupo_prediccion = QGroupBox("Realizar predicción")
+      self.grupo_prediccion = QGroupBox("6. Realizar predicción")
       self.grupo_prediccion.setEnabled(False)
 
       layout_principal_pred = QVBoxLayout(self.grupo_prediccion)
@@ -897,7 +1137,8 @@ class VentanaPrincipal(QMainWindow):
               mensajes.append(f"Faltan valores en: {', '.join(faltantes)}")
           if invalidos:
               mensajes.append(f"Valores no numéricos en: {', '.join(invalidos)}")
-          QMessageBox.warning(self, "Error de validación", "\n".join(mensajes))
+          mensajes.append("Corríjalos e inténtelo de nuevo.")
+          self._aviso("Error de validación", "\n".join(mensajes))
           return
 
       try:
@@ -912,11 +1153,18 @@ class VentanaPrincipal(QMainWindow):
           )
           self.lbl_resultado_prediccion.setVisible(True)
           self.lbl_resultado_prediccion.show()
-          
-      except Exception as e:
-          QMessageBox.critical(self, "Error", f"Ocurrió un error al calcular:\n{e}")
+
+      except Exception:
+          logger.exception("Error al calcular la predicción")
+          self._error(
+              "No se pudo calcular la predicción",
+              "Ocurrió un error al calcular la predicción. Compruebe los valores "
+              "introducidos e inténtelo de nuevo."
+          )
+
 
 def main():
+  logging.basicConfig(level=logging.INFO)
   app = QApplication(sys.argv)
   ventana = VentanaPrincipal()
   ventana.show()
