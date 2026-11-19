@@ -34,8 +34,9 @@ Se probó el mismo dataset en la versión anterior y en la nueva.
 
 Capturas:
 
-- [![alt text](<Captura de pantalla 2026-11-19 130512.png>)] `docs/img/antes_tabla.png`
-- [![alt text](<Captura de pantalla 2026-11-19 130641.png>)] `docs/img/despues_tabla.png`
+![Tabla con la versión anterior](img/antes_tabla.png)
+
+![Tabla con la versión nueva](img/despues_tabla.png)
 
 ## Cómo reproducir la medición
 
