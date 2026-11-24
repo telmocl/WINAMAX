@@ -218,3 +218,17 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Datos y archivos de las pruebas funcionales (no van al repositorio)
+data/
+*.joblib
+!prototipos/modelo_prueba.joblib
+
+# Scripts y textos auxiliares usados para preparar el plan de pruebas
+info_dataset.py
+crear_excel.py
+crear_sqlite.py
+textos_gui.txt
+mensajes_gui.txt
+mensajes_gui2.txt
+mensajes_logica.txt
