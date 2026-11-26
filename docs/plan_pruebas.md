@@ -14,22 +14,20 @@ La ventana tiene seis secciones numeradas: **1. Cargar datos (o cargar un modelo
 
 Los cuadros de mensaje de la aplicación se cierran con el botón **OK**. Los que hacen una pregunta tienen los botones **Yes** y **Cancel** (o **Yes** y **No**).
 
-### 1.1 Historias de usuario
+### 1.1 Historias de usuario probadas
 
-Cada caso indica la historia de la que procede con un código provisional. Antes de ejecutar el plan, sustituir cada código por el número real de Taiga (en el editor, Buscar y reemplazar):
-
-| Código en el plan | Funcionalidad | Nº en Taiga |
+| Funcionalidad | Historias de Taiga | Casos |
 |---|---|---|
-| `#HU-CARGA` | Carga de datos (CSV, Excel y SQLite) y visualización en la tabla | # |
-| `#HU-COLUMNAS` | Selección de columnas de entrada y salida | # |
-| `#HU-SEPARACION` | Separación en conjuntos de entrenamiento y test | # |
-| `#HU-NULOS` | Preprocesado de valores inexistentes | # |
-| `#HU-MODELO` | Creación del modelo: gráfico, fórmula y métricas | # |
-| `#HU-DESCRIPCION` | Descripción del modelo | # |
-| `#HU-GUARDAR` | Guardado del modelo | # |
-| `#HU-CARGAR-MODELO` | Recuperación del modelo desde disco | # |
-| `#HU-PREDICCION` | Predicciones | # |
-| `#HU-ESTADO` | Barra de estado y avisos de descarte (funcionalidad añadida por el equipo) | # |
+| Carga de datos (CSV, Excel y SQLite) y visualización en la tabla | #10, #14 | CP-01 a CP-07 |
+| Selección de columnas de entrada y salida | #11 | CP-08 a CP-14 |
+| Separación en conjuntos de entrenamiento y test | #41 | CP-15 a CP-26 |
+| Preprocesado de valores inexistentes | #26 | CP-18, CP-27 a CP-33 |
+| Creación del modelo: gráfico, fórmula y métricas | #16 | CP-34 a CP-37 |
+| Descripción del modelo | #33 | CP-39 a CP-41, CP-44 |
+| Guardado del modelo | #21 | CP-39 a CP-41, CP-44 |
+| Recuperación del modelo desde disco | #24 | CP-42 a CP-44, CP-46 |
+| Predicciones con un modelo creado y con un modelo cargado | #22 | CP-45 a CP-50 |
+| Mejoras de la interfaz: barra de estado y avisos de descarte | #37 | CP-37, CP-38 |
 
 ## 2. Datos de prueba
 
@@ -102,7 +100,7 @@ El modelo de P-5 es el **modelo de referencia**: `median_house_value = 42050.282
 ### 3.1 Carga de datos
 
 #### CP-01. Cargar un CSV válido
-- **Historia:** #HU-CARGA
+- **Historia:** #10, #14
 - **Objetivo:** comprobar que `housing.csv` se carga y se muestra completo en la tabla.
 - **Precondiciones:** la aplicación está recién arrancada (ver 1) y no hay ningún dataset cargado.
 - **Datos de prueba:** `housing.csv` (ver 2.1).
@@ -114,7 +112,7 @@ El modelo de P-5 es el **modelo de referencia**: `median_house_value = 42050.282
 - **Resultado esperado:** la tabla **Datos** muestra 10 columnas, de `longitude` a `ocean_proximity`. La fila 1 contiene `-122.23, 37.88, 41.0, 880.0, 129.0, 322.0, 126.0, 8.3252, 452600.0, NEAR BAY`. En la fila 291, la columna `total_bedrooms` muestra `NaN`. La última fila es la **20640**. Junto a los botones de la sección 1 aparece la ruta completa del archivo. La barra de estado muestra `Dataset: housing.csv (20.640 filas)  |  Modelo: ninguno  |  Sin cambios pendientes`. La lista **Entradas:** contiene las 10 columnas y el desplegable **Salida:** muestra `-- Seleccionar Salida --` seguido de las 10 columnas.
 
 #### CP-02. Cargar un Excel válido
-- **Historia:** #HU-CARGA
+- **Historia:** #10, #14
 - **Objetivo:** comprobar que `housing.xlsx` se carga y se muestra completo en la tabla.
 - **Precondiciones:** la aplicación está recién arrancada y no hay ningún dataset cargado.
 - **Datos de prueba:** `housing.xlsx` (ver 2.1).
@@ -126,7 +124,7 @@ El modelo de P-5 es el **modelo de referencia**: `median_house_value = 42050.282
 - **Resultado esperado:** la tabla muestra 10 columnas y su última fila es la **20640**. La fila 1 contiene `-122.23, 37.88, 41, 880, 129.0, 322, 126, 8.3252, 452600, NEAR BAY`. La barra de estado muestra `Dataset: housing.xlsx (20.640 filas)`.
 
 #### CP-03. Cargar un SQLite válido
-- **Historia:** #HU-CARGA
+- **Historia:** #10, #14
 - **Objetivo:** comprobar que `housing.sqlite` se carga y se muestra completo en la tabla.
 - **Precondiciones:** la aplicación está recién arrancada y no hay ningún dataset cargado.
 - **Datos de prueba:** `housing.sqlite` (ver 2.1).
@@ -138,7 +136,7 @@ El modelo de P-5 es el **modelo de referencia**: `median_house_value = 42050.282
 - **Resultado esperado:** la tabla muestra 10 columnas y su última fila es la **20640**. La fila 1 contiene `-122.23, 37.88, 41.0, 880.0, 129.0, 322.0, 126.0, 8.3252, 452600.0, NEAR BAY`. La barra de estado muestra `Dataset: housing.sqlite (20.640 filas)`.
 
 #### CP-04. Cargar un CSV vacío
-- **Historia:** #HU-CARGA
+- **Historia:** #10, #14
 - **Objetivo:** comprobar que un archivo vacío se rechaza con un mensaje claro.
 - **Precondiciones:** la aplicación está recién arrancada. Se ha creado `data\vacio.csv` (ver 2.2).
 - **Datos de prueba:** `vacio.csv`.
@@ -148,7 +146,7 @@ El modelo de P-5 es el **modelo de referencia**: `median_house_value = 42050.282
 - **Resultado esperado:** aparece un mensaje de error titulado **No se pudo cargar el archivo** cuyo texto empieza por `El archivo está dañado, vacío o su contenido no corresponde a su extensión`. Al cerrarlo, la tabla **Datos** sigue vacía y la barra de estado muestra `Dataset: ninguno`.
 
 #### CP-05. Cargar un CSV con solo la cabecera
-- **Historia:** #HU-CARGA
+- **Historia:** #10, #14
 - **Objetivo:** comprobar que un archivo sin filas de datos se rechaza.
 - **Precondiciones:** la aplicación está recién arrancada. Se ha creado `data\solo_cabecera.csv` (ver 2.2).
 - **Datos de prueba:** `solo_cabecera.csv`.
@@ -158,7 +156,7 @@ El modelo de P-5 es el **modelo de referencia**: `median_house_value = 42050.282
 - **Resultado esperado:** mensaje de error **No se pudo cargar el archivo** cuyo texto empieza por `El archivo no contiene datos.` La tabla sigue vacía y la barra de estado muestra `Dataset: ninguno`.
 
 #### CP-06. Cargar un archivo cuyo contenido no corresponde a su extensión
-- **Historia:** #HU-CARGA
+- **Historia:** #10, #14
 - **Objetivo:** comprobar que un archivo con extensión de Excel que no es un Excel se rechaza.
 - **Precondiciones:** la aplicación está recién arrancada. Se ha creado `data\falso.xlsx` (ver 2.2).
 - **Datos de prueba:** `falso.xlsx`.
@@ -168,7 +166,7 @@ El modelo de P-5 es el **modelo de referencia**: `median_house_value = 42050.282
 - **Resultado esperado:** mensaje de error **No se pudo cargar el archivo** cuyo texto empieza por `El archivo está dañado, vacío o su contenido no corresponde a su extensión`. La tabla sigue vacía.
 
 #### CP-07. Cancelar la carga de un dataset
-- **Historia:** #HU-CARGA
+- **Historia:** #10, #14
 - **Objetivo:** comprobar que cancelar el explorador de archivos no cambia los datos cargados.
 - **Precondiciones:** P-1 (dataset cargado).
 - **Datos de prueba:** ninguno.
@@ -180,7 +178,7 @@ El modelo de P-5 es el **modelo de referencia**: `median_house_value = 42050.282
 ### 3.2 Selección de columnas
 
 #### CP-08. Selección válida de entradas y salida
-- **Historia:** #HU-COLUMNAS
+- **Historia:** #11
 - **Objetivo:** comprobar que una selección válida se confirma y habilita el paso 3.
 - **Precondiciones:** P-1 (dataset cargado).
 - **Datos de prueba:** entradas `median_income` y `housing_median_age`; salida `median_house_value`.
@@ -191,7 +189,7 @@ El modelo de P-5 es el **modelo de referencia**: `median_house_value = 42050.282
 - **Resultado esperado:** aparece el mensaje **Selección confirmada** con el texto `Variables confirmadas correctamente.`, `Entradas: median_income, housing_median_age` y `Salida: median_house_value`. Al cerrarlo con **OK**, la sección 3 **Separar datos (Train / Test)** queda habilitada, con `20.0` en **% Test (1-99):** y `42` en **Semilla (Seed):**. Las secciones 4 y 5 siguen deshabilitadas (en gris).
 
 #### CP-09. Confirmar sin elegir la salida
-- **Historia:** #HU-COLUMNAS
+- **Historia:** #11
 - **Objetivo:** comprobar que se exige una columna de salida.
 - **Precondiciones:** P-1.
 - **Datos de prueba:** entrada `median_income`; sin salida.
@@ -202,7 +200,7 @@ El modelo de P-5 es el **modelo de referencia**: `median_house_value = 42050.282
 - **Resultado esperado:** mensaje de error **Error de selección** con el texto `Falta seleccionar: una columna de salida (target).` Al cerrarlo, la sección 3 sigue deshabilitada.
 
 #### CP-10. Confirmar sin elegir entradas
-- **Historia:** #HU-COLUMNAS
+- **Historia:** #11
 - **Objetivo:** comprobar que se exige al menos una entrada.
 - **Precondiciones:** P-1.
 - **Datos de prueba:** sin entradas; salida `median_house_value`.
@@ -213,7 +211,7 @@ El modelo de P-5 es el **modelo de referencia**: `median_house_value = 42050.282
 - **Resultado esperado:** mensaje **Error de selección** con el texto `Falta seleccionar: al menos una columna de entrada (features).` La sección 3 sigue deshabilitada.
 
 #### CP-11. Confirmar sin elegir nada
-- **Historia:** #HU-COLUMNAS
+- **Historia:** #11
 - **Objetivo:** comprobar el mensaje cuando faltan entradas y salida a la vez.
 - **Precondiciones:** P-1.
 - **Datos de prueba:** ninguno.
@@ -222,7 +220,7 @@ El modelo de P-5 es el **modelo de referencia**: `median_house_value = 42050.282
 - **Resultado esperado:** mensaje **Error de selección** con el texto `Falta seleccionar: al menos una columna de entrada (features) y una columna de salida (target).`
 
 #### CP-12. Misma columna como entrada y como salida
-- **Historia:** #HU-COLUMNAS
+- **Historia:** #11
 - **Objetivo:** comprobar que la salida no puede ser también una entrada.
 - **Precondiciones:** P-1.
 - **Datos de prueba:** `median_house_value` como entrada y como salida.
@@ -233,7 +231,7 @@ El modelo de P-5 es el **modelo de referencia**: `median_house_value = 42050.282
 - **Resultado esperado:** mensaje **Error de selección** con el texto `La columna de salida 'median_house_value' no puede seleccionarse también como entrada.` La sección 3 sigue deshabilitada.
 
 #### CP-13. Columna no numérica como entrada
-- **Historia:** #HU-COLUMNAS
+- **Historia:** #11
 - **Objetivo:** comprobar que se rechazan las columnas de texto.
 - **Precondiciones:** P-1.
 - **Datos de prueba:** entrada `ocean_proximity`; salida `median_house_value`.
@@ -244,7 +242,7 @@ El modelo de P-5 es el **modelo de referencia**: `median_house_value = 42050.282
 - **Resultado esperado:** mensaje **Error de selección** con el texto `Las siguientes columnas no son numéricas y no se pueden usar en regresión: ocean_proximity.` La sección 3 sigue deshabilitada.
 
 #### CP-14. Selección de columnas sin dataset
-- **Historia:** #HU-COLUMNAS
+- **Historia:** #11
 - **Objetivo:** comprobar que no se pueden seleccionar columnas si no hay datos.
 - **Precondiciones:** la aplicación está recién arrancada, sin dataset.
 - **Datos de prueba:** ninguno.
@@ -256,7 +254,7 @@ El modelo de P-5 es el **modelo de referencia**: `median_house_value = 42050.282
 ### 3.3 Separación en entrenamiento y test
 
 #### CP-15. Dataset con menos de 5 filas
-- **Historia:** #HU-SEPARACION
+- **Historia:** #41
 - **Objetivo:** comprobar que un dataset demasiado pequeño no se puede separar.
 - **Precondiciones:** la aplicación está recién arrancada. Se ha creado `data\pequeno.csv` (ver 2.2).
 - **Datos de prueba:** `pequeno.csv` (4 filas); entrada `a`; salida `b`; porcentaje de test 20.
@@ -270,7 +268,7 @@ El modelo de P-5 es el **modelo de referencia**: `median_house_value = 42050.282
 - **Resultado esperado:** mensaje de error **Error en la separación** con el texto `El dataset debe tener al menos 5 filas para poder separarlo.` La sección 4 sigue deshabilitada.
 
 #### CP-16. Separación válida con 20 % de test y semilla 42
-- **Historia:** #HU-SEPARACION
+- **Historia:** #41
 - **Objetivo:** comprobar una separación normal y la detección de valores inexistentes en cada conjunto.
 - **Precondiciones:** P-2 (columnas con valores inexistentes seleccionadas).
 - **Datos de prueba:** porcentaje de test 20; semilla 42.
@@ -281,7 +279,7 @@ El modelo de P-5 es el **modelo de referencia**: `median_house_value = 42050.282
 - **Resultado esperado:** aparece el mensaje **Separación y detección exitosa**. Indica que el conjunto de entrenamiento tiene **16512** filas y el de test **4128**. En `Valores inexistentes detectados:` aparecen las líneas `- median_income -> Train: 0 | Test: 0`, `- total_bedrooms -> Train: 0 | Test: 207` y `- median_house_value -> Train: 0 | Test: 0`. Al cerrarlo, la sección 4 queda habilitada y muestra ese mismo texto. La sección 5 sigue deshabilitada.
 
 #### CP-17. La misma semilla da la misma separación
-- **Historia:** #HU-SEPARACION
+- **Historia:** #41
 - **Objetivo:** comprobar que repetir la separación con la misma semilla da el mismo resultado, y otra semilla da otro.
 - **Precondiciones:** P-2.
 - **Datos de prueba:** porcentaje 20; semillas 0 y 42.
@@ -292,7 +290,7 @@ El modelo de P-5 es el **modelo de referencia**: `median_house_value = 42050.282
 - **Resultado esperado:** en los pasos 1 y 2 la línea es la misma: `- total_bedrooms -> Train: 158 | Test: 49`. En el paso 3 es `- total_bedrooms -> Train: 0 | Test: 207`.
 
 #### CP-18. Separación sin valores inexistentes
-- **Historia:** #HU-SEPARACION, #HU-NULOS
+- **Historia:** #41, #26
 - **Objetivo:** comprobar que, si no hay valores inexistentes, se puede crear el modelo sin preprocesar.
 - **Precondiciones:** P-3 (columnas sin valores inexistentes seleccionadas).
 - **Datos de prueba:** porcentaje 20; semilla 42.
@@ -302,7 +300,7 @@ El modelo de P-5 es el **modelo de referencia**: `median_house_value = 42050.282
 - **Resultado esperado:** mensaje **Separación y detección exitosa** con las líneas `- median_income -> Train: 0 | Test: 0`, `- housing_median_age -> Train: 0 | Test: 0` y `- median_house_value -> Train: 0 | Test: 0`, y el texto `No hay valores inexistentes. Puede continuar sin preprocesar o aplicar una estrategia.` Al cerrarlo, las secciones 4 y 5 quedan habilitadas y el botón **Crear Modelo de Regresión Lineal** se puede pulsar.
 
 #### CP-19. Porcentaje de test 0 (límite no válido)
-- **Historia:** #HU-SEPARACION
+- **Historia:** #41
 - **Objetivo:** comprobar que el valor límite 0 se rechaza.
 - **Precondiciones:** P-3.
 - **Datos de prueba:** porcentaje de test 0.
@@ -312,7 +310,7 @@ El modelo de P-5 es el **modelo de referencia**: `median_house_value = 42050.282
 - **Resultado esperado:** mensaje de error **Error en la separación** con el texto `El porcentaje de test debe ser un número entre 1 y 99.` Al cerrarlo, las secciones 4 y 5 siguen deshabilitadas.
 
 #### CP-20. Porcentaje de test 1 (límite inferior válido)
-- **Historia:** #HU-SEPARACION
+- **Historia:** #41
 - **Objetivo:** comprobar que el valor límite 1 se acepta.
 - **Precondiciones:** P-3.
 - **Datos de prueba:** porcentaje de test 1; semilla 42.
@@ -322,7 +320,7 @@ El modelo de P-5 es el **modelo de referencia**: `median_house_value = 42050.282
 - **Resultado esperado:** mensaje **Separación y detección exitosa**, que indica **20433** filas de entrenamiento y **207** de test.
 
 #### CP-21. Porcentaje de test 99 (límite superior válido)
-- **Historia:** #HU-SEPARACION
+- **Historia:** #41
 - **Objetivo:** comprobar que el valor límite 99 se acepta.
 - **Precondiciones:** P-3.
 - **Datos de prueba:** porcentaje de test 99; semilla 42.
@@ -332,7 +330,7 @@ El modelo de P-5 es el **modelo de referencia**: `median_house_value = 42050.282
 - **Resultado esperado:** mensaje **Separación y detección exitosa**, que indica **206** filas de entrenamiento y **20434** de test.
 
 #### CP-22. Porcentaje de test 100 (límite no válido)
-- **Historia:** #HU-SEPARACION
+- **Historia:** #41
 - **Objetivo:** comprobar que el valor límite 100 se rechaza.
 - **Precondiciones:** P-3.
 - **Datos de prueba:** porcentaje de test 100.
@@ -342,7 +340,7 @@ El modelo de P-5 es el **modelo de referencia**: `median_house_value = 42050.282
 - **Resultado esperado:** mensaje de error **Error en la separación** con el texto `El porcentaje de test debe ser un número entre 1 y 99.` Las secciones 4 y 5 siguen deshabilitadas.
 
 #### CP-23. Porcentaje de test no numérico
-- **Historia:** #HU-SEPARACION
+- **Historia:** #41
 - **Objetivo:** comprobar que un texto en el porcentaje se rechaza.
 - **Precondiciones:** P-3.
 - **Datos de prueba:** porcentaje de test `abc`.
@@ -352,7 +350,7 @@ El modelo de P-5 es el **modelo de referencia**: `median_house_value = 42050.282
 - **Resultado esperado:** mensaje de error **Porcentaje de test no válido** con el texto `El porcentaje de test debe ser un número (por ejemplo 20). Corríjalo e inténtelo de nuevo.`
 
 #### CP-24. Semilla no numérica
-- **Historia:** #HU-SEPARACION
+- **Historia:** #41
 - **Objetivo:** comprobar que una semilla que no es un número entero se rechaza.
 - **Precondiciones:** P-3.
 - **Datos de prueba:** porcentaje 20; semilla `abc`.
@@ -363,7 +361,7 @@ El modelo de P-5 es el **modelo de referencia**: `median_house_value = 42050.282
 - **Resultado esperado:** mensaje de error **Semilla no válida** con el texto `La semilla debe ser un número entero (por ejemplo 42). Corríjala e inténtelo de nuevo.`
 
 #### CP-25. Semilla negativa
-- **Historia:** #HU-SEPARACION
+- **Historia:** #41
 - **Objetivo:** comprobar que una semilla negativa se rechaza con un mensaje comprensible.
 - **Precondiciones:** P-3.
 - **Datos de prueba:** porcentaje 20; semilla `-1`.
@@ -374,7 +372,7 @@ El modelo de P-5 es el **modelo de referencia**: `median_house_value = 42050.282
 - **Resultado esperado:** mensaje de error que explica en español que la semilla no es válida, sin detalles técnicos en inglés (según el README, los detalles técnicos van a la consola y no a la interfaz). Las secciones 4 y 5 siguen deshabilitadas.
 
 #### CP-26. Porcentaje que deja vacío el conjunto de entrenamiento
-- **Historia:** #HU-SEPARACION
+- **Historia:** #41
 - **Objetivo:** comprobar el aviso cuando el porcentaje deja sin filas uno de los conjuntos.
 - **Precondiciones:** la aplicación está recién arrancada. Se ha creado `data\cinco.csv` (ver 2.2).
 - **Datos de prueba:** `cinco.csv` (5 filas); entrada `a`; salida `b`; porcentaje 99.
@@ -390,7 +388,7 @@ El modelo de P-5 es el **modelo de referencia**: `median_house_value = 42050.282
 Estos casos usan la semilla 0, con la que hay valores inexistentes tanto en entrenamiento (158) como en test (49). Cada caso crea después el modelo para comprobar que la estrategia se ha aplicado de verdad: cada estrategia da una fórmula distinta.
 
 #### CP-27. Preprocesar sin haber separado los datos
-- **Historia:** #HU-NULOS
+- **Historia:** #26
 - **Objetivo:** comprobar que no se puede preprocesar sin hacer antes el paso 3.
 - **Precondiciones:** P-2 (columnas seleccionadas, sin pulsar **Separar datos**).
 - **Datos de prueba:** ninguno.
@@ -400,7 +398,7 @@ Estos casos usan la semilla 0, con la que hay valores inexistentes tanto en entr
 - **Resultado esperado:** la sección 4 está deshabilitada (en gris) y muestra el texto `Realice la separación de datos para detectar valores inexistentes.` Al intentar pulsar **Aplicar preprocesado** no ocurre nada.
 
 #### CP-28. Eliminar las filas con valores inexistentes
-- **Historia:** #HU-NULOS
+- **Historia:** #26
 - **Objetivo:** comprobar la estrategia de eliminación de filas.
 - **Precondiciones:** P-4 (datos separados con semilla 0).
 - **Datos de prueba:** estrategia de eliminación de filas.
@@ -411,7 +409,7 @@ Estos casos usan la semilla 0, con la que hay valores inexistentes tanto en entr
 - **Resultado esperado:** tras el paso 2, el mensaje **Preprocesamiento exitoso** contiene `Filas eliminadas en Train: 158` y `Filas eliminadas en Test: 49`. Tras el paso 3, la fórmula es `median_house_value = 42105.2080 * median_income + 13.5931 * total_bedrooms + 36717.6490`.
 
 #### CP-29. Rellenar con la media
-- **Historia:** #HU-NULOS
+- **Historia:** #26
 - **Objetivo:** comprobar la estrategia de la media.
 - **Precondiciones:** P-4.
 - **Datos de prueba:** estrategia de la media.
@@ -422,7 +420,7 @@ Estos casos usan la semilla 0, con la que hay valores inexistentes tanto en entr
 - **Resultado esperado:** tras el paso 2, el mensaje **Preprocesamiento exitoso** dice `Preprocesamiento aplicado con éxito:` y `Valores rellenados usando la MEDIA calculada en el conjunto de entrenamiento.` Tras el paso 3, la fórmula es `median_house_value = 42050.2828 * median_income + 13.5916 * total_bedrooms + 36943.0919`.
 
 #### CP-30. Rellenar con la mediana
-- **Historia:** #HU-NULOS
+- **Historia:** #26
 - **Objetivo:** comprobar la estrategia de la mediana.
 - **Precondiciones:** P-4.
 - **Datos de prueba:** estrategia de la mediana.
@@ -433,7 +431,7 @@ Estos casos usan la semilla 0, con la que hay valores inexistentes tanto en entr
 - **Resultado esperado:** tras el paso 2, el mensaje **Preprocesamiento exitoso** dice `Valores rellenados usando la MEDIANA calculada en el conjunto de entrenamiento.` Tras el paso 3, la fórmula es `median_house_value = 42050.2376 * median_income + 13.5769 * total_bedrooms + 36964.6011`.
 
 #### CP-31. Rellenar con un valor constante válido
-- **Historia:** #HU-NULOS
+- **Historia:** #26
 - **Objetivo:** comprobar la estrategia del valor constante.
 - **Precondiciones:** P-4.
 - **Datos de prueba:** constante 0.
@@ -445,7 +443,7 @@ Estos casos usan la semilla 0, con la que hay valores inexistentes tanto en entr
 - **Resultado esperado:** tras el paso 3, el mensaje **Preprocesamiento exitoso** dice `Valores rellenados con el valor constante: 0.0`. Tras el paso 4, la fórmula es `median_house_value = 42049.8286 * median_income + 13.3492 * total_bedrooms + 37143.8349`.
 
 #### CP-32. Valor constante no numérico
-- **Historia:** #HU-NULOS
+- **Historia:** #26
 - **Objetivo:** comprobar que una constante que no es un número se rechaza.
 - **Precondiciones:** P-4.
 - **Datos de prueba:** constante `abc`.
@@ -456,7 +454,7 @@ Estos casos usan la semilla 0, con la que hay valores inexistentes tanto en entr
 - **Resultado esperado:** mensaje de error **Valor constante no válido** con el texto `El valor constante debe ser un número (por ejemplo 0 o 3.5). Corríjalo e inténtelo de nuevo.` Al cerrarlo, la sección 5 sigue deshabilitada.
 
 #### CP-33. Valor constante vacío
-- **Historia:** #HU-NULOS
+- **Historia:** #26
 - **Objetivo:** comprobar que dejar la constante en blanco se rechaza.
 - **Precondiciones:** P-4.
 - **Datos de prueba:** constante vacía.
@@ -469,7 +467,7 @@ Estos casos usan la semilla 0, con la que hay valores inexistentes tanto en entr
 ### 3.5 Creación del modelo
 
 #### CP-34. Crear el modelo sin completar los pasos previos
-- **Historia:** #HU-MODELO
+- **Historia:** #16
 - **Objetivo:** comprobar que no se puede crear un modelo sin separar y preprocesar los datos.
 - **Precondiciones:** P-4 (datos separados con valores inexistentes, sin preprocesar).
 - **Datos de prueba:** ninguno.
@@ -479,7 +477,7 @@ Estos casos usan la semilla 0, con la que hay valores inexistentes tanto en entr
 - **Resultado esperado:** la sección 5 está deshabilitada (en gris) y al intentar pulsar el botón no ocurre nada. La línea de fórmula muestra `Fórmula: -`.
 
 #### CP-35. Crear un modelo con dos entradas
-- **Historia:** #HU-MODELO
+- **Historia:** #16
 - **Objetivo:** comprobar que se crea el modelo y se muestran el gráfico, la fórmula y las métricas en entrenamiento y test.
 - **Precondiciones:** P-4.
 - **Datos de prueba:** entradas `median_income` y `total_bedrooms`; salida `median_house_value`; semilla 0; media.
@@ -503,7 +501,7 @@ Estos casos usan la semilla 0, con la que hay valores inexistentes tanto en entr
   - La barra de estado muestra `Modelo: creado  |  Modelo con cambios sin guardar`.
 
 #### CP-36. Crear un modelo con una sola entrada
-- **Historia:** #HU-MODELO
+- **Historia:** #16
 - **Objetivo:** comprobar el gráfico y la fórmula de un modelo con una sola entrada.
 - **Precondiciones:** P-1.
 - **Datos de prueba:** entrada `median_income`; salida `median_house_value`; porcentaje 20; semilla 42.
@@ -514,7 +512,7 @@ Estos casos usan la semilla 0, con la que hay valores inexistentes tanto en entr
 - **Resultado esperado:** la fórmula es `median_house_value = 41933.8494 * median_income + 44459.7292`. Las métricas son R² 0.4770 (Train) y 0.4589 (Test), y MSE 6991447170.1828 (Train) y 7091157771.7655 (Test). El gráfico tiene en el eje horizontal `median_income` y en el vertical `median_house_value`. Muestra puntos azules (Train) y naranjas (Test) y una recta roja `Ajuste`.
 
 #### CP-37. Repetir la separación descarta el modelo creado
-- **Historia:** #HU-MODELO, #HU-ESTADO
+- **Historia:** #16, #37
 - **Objetivo:** comprobar que, al cambiar la separación, el modelo anterior deja de mostrarse y no se puede usar.
 - **Precondiciones:** P-5 (modelo de referencia creado).
 - **Datos de prueba:** semilla 42.
@@ -525,7 +523,7 @@ Estos casos usan la semilla 0, con la que hay valores inexistentes tanto en entr
 - **Resultado esperado:** la barra de estado muestra `Modelo: ninguno  |  Sin cambios pendientes`. La sección 5 está deshabilitada y el botón **Guardar modelo** no se puede pulsar. Ya no se muestran la fórmula, las métricas ni el gráfico del modelo anterior (la línea de fórmula vuelve a `Fórmula: -`). La sección 6 está deshabilitada.
 
 #### CP-38. Cargar otro dataset con un modelo creado y cancelar
-- **Historia:** #HU-ESTADO
+- **Historia:** #37
 - **Objetivo:** comprobar que se avisa antes de descartar un modelo y que cancelar lo conserva.
 - **Precondiciones:** P-5.
 - **Datos de prueba:** ninguno.
@@ -539,7 +537,7 @@ Estos casos usan la semilla 0, con la que hay valores inexistentes tanto en entr
 Antes de empezar este bloque, borrar del Escritorio el archivo `modelo_prueba.joblib` si existe.
 
 #### CP-39. Guardar un modelo con descripción
-- **Historia:** #HU-DESCRIPCION, #HU-GUARDAR
+- **Historia:** #33, #21
 - **Objetivo:** comprobar que se escribe una descripción y que el modelo se guarda en disco con la extensión `.joblib`.
 - **Precondiciones:** P-5. No existe `modelo_prueba.joblib` en el Escritorio.
 - **Datos de prueba:** descripción `Modelo de prueba de precios`; nombre de archivo `modelo_prueba`.
@@ -551,7 +549,7 @@ Antes de empezar este bloque, borrar del Escritorio el archivo `modelo_prueba.jo
 - **Resultado esperado:** tras el paso 1, el texto aparece en el cuadro y la barra de estado muestra `Modelo con cambios sin guardar`. Tras el paso 3 aparece el mensaje **Modelo guardado** con el texto `Modelo guardado en:` seguido de una ruta que termina en `modelo_prueba.joblib`. Tras el paso 4, la barra de estado muestra `Sin cambios pendientes`. El archivo `modelo_prueba.joblib` está en el Escritorio.
 
 #### CP-40. Guardar un modelo sin descripción y cancelar
-- **Historia:** #HU-DESCRIPCION, #HU-GUARDAR
+- **Historia:** #33, #21
 - **Objetivo:** comprobar el aviso cuando la descripción está vacía.
 - **Precondiciones:** P-5, con el cuadro **Descripción (opcional):** vacío.
 - **Datos de prueba:** ninguno.
@@ -561,7 +559,7 @@ Antes de empezar este bloque, borrar del Escritorio el archivo `modelo_prueba.jo
 - **Resultado esperado:** tras el paso 1 aparece el mensaje **Descripción vacía** con el texto `El modelo no tiene descripción. ¿Guardar igualmente?` y los botones **Yes** y **Cancel**. Tras el paso 2 no se abre la ventana **Guardar modelo** y no se guarda nada.
 
 #### CP-41. Intentar sobrescribir un modelo existente y no hacerlo
-- **Historia:** #HU-GUARDAR
+- **Historia:** #21
 - **Objetivo:** comprobar que un modelo se puede volver a guardar en la misma sesión y que se pide confirmación antes de sobrescribir un archivo.
 - **Precondiciones:** se acaba de ejecutar CP-39 y la aplicación sigue abierta, con el mismo modelo.
 - **Datos de prueba:** descripción `Otro modelo`; nombre `modelo_prueba`.
@@ -575,7 +573,7 @@ Antes de empezar este bloque, borrar del Escritorio el archivo `modelo_prueba.jo
 ### 3.7 Recuperación del modelo desde disco
 
 #### CP-42. Cargar un archivo de modelo no válido
-- **Historia:** #HU-CARGAR-MODELO
+- **Historia:** #24
 - **Objetivo:** comprobar que un archivo que no es un modelo se rechaza.
 - **Precondiciones:** la aplicación está recién arrancada. Se ha creado `data\modelo_invalido.joblib` (ver 2.2).
 - **Datos de prueba:** `modelo_invalido.joblib`.
@@ -585,7 +583,7 @@ Antes de empezar este bloque, borrar del Escritorio el archivo `modelo_prueba.jo
 - **Resultado esperado:** mensaje de error **No se pudo cargar el modelo** con el texto `El archivo está dañado, no tiene el formato esperado o le falta parte de la información. Seleccione otro archivo de modelo.` La barra de estado sigue mostrando `Modelo: ninguno`.
 
 #### CP-43. Cargar un modelo guardado
-- **Historia:** #HU-CARGAR-MODELO
+- **Historia:** #24
 - **Objetivo:** comprobar que el modelo recuperado conserva la fórmula, las métricas y la descripción.
 - **Precondiciones:** existe `modelo_prueba.joblib` en el Escritorio (CP-39). La aplicación está recién arrancada.
 - **Datos de prueba:** `modelo_prueba.joblib`.
@@ -603,7 +601,7 @@ Antes de empezar este bloque, borrar del Escritorio el archivo `modelo_prueba.jo
   - La barra de estado muestra `Dataset: ninguno  |  Modelo: cargado  |  Sin cambios pendientes`.
 
 #### CP-44. Modificar la descripción de un modelo cargado
-- **Historia:** #HU-DESCRIPCION, #HU-CARGAR-MODELO
+- **Historia:** #33, #24
 - **Objetivo:** comprobar que se puede cambiar la descripción de un modelo cargado y guardar el cambio.
 - **Precondiciones:** CP-43 ejecutado (modelo `modelo_prueba.joblib` cargado).
 - **Datos de prueba:** nueva descripción `Descripción modificada`.
@@ -618,7 +616,7 @@ Antes de empezar este bloque, borrar del Escritorio el archivo `modelo_prueba.jo
 ### 3.8 Predicciones
 
 #### CP-45. Predicción con un modelo creado
-- **Historia:** #HU-PREDICCION
+- **Historia:** #22
 - **Objetivo:** comprobar que se calcula la predicción con un modelo recién creado.
 - **Precondiciones:** P-5 (modelo de referencia creado).
 - **Datos de prueba:** `median_income` = 5; `total_bedrooms` = 500.
@@ -629,7 +627,7 @@ Antes de empezar este bloque, borrar del Escritorio el archivo `modelo_prueba.jo
 - **Resultado esperado:** debajo del botón aparece `median_house_value = 253990.2937`.
 
 #### CP-46. Predicción con un modelo cargado
-- **Historia:** #HU-PREDICCION, #HU-CARGAR-MODELO
+- **Historia:** #22, #24
 - **Objetivo:** comprobar que un modelo recuperado desde disco predice lo mismo que el modelo original.
 - **Precondiciones:** la aplicación está recién arrancada. Existe `modelo_prueba.joblib` en el Escritorio (CP-39).
 - **Datos de prueba:** `modelo_prueba.joblib`; `median_income` = 5; `total_bedrooms` = 500.
@@ -641,7 +639,7 @@ Antes de empezar este bloque, borrar del Escritorio el archivo `modelo_prueba.jo
 - **Resultado esperado:** debajo del botón aparece `median_house_value = 253990.2937`, igual que en CP-45.
 
 #### CP-47. Predicción con coma decimal
-- **Historia:** #HU-PREDICCION
+- **Historia:** #22
 - **Objetivo:** comprobar que se acepta la coma como separador decimal.
 - **Precondiciones:** P-5.
 - **Datos de prueba:** `median_income` = 3,5 y después 3.5; `total_bedrooms` = 500.
@@ -651,7 +649,7 @@ Antes de empezar este bloque, borrar del Escritorio el archivo `modelo_prueba.jo
 - **Resultado esperado:** en los dos pasos aparece `median_house_value = 190914.8695`.
 
 #### CP-48. Predicción con texto en lugar de un número
-- **Historia:** #HU-PREDICCION
+- **Historia:** #22
 - **Objetivo:** comprobar que un valor no numérico se rechaza.
 - **Precondiciones:** P-5.
 - **Datos de prueba:** `median_income` = abc; `total_bedrooms` = 500.
@@ -662,7 +660,7 @@ Antes de empezar este bloque, borrar del Escritorio el archivo `modelo_prueba.jo
 - **Resultado esperado:** mensaje de aviso **Error de validación** con el texto `Valores no numéricos en: median_income` y `Corríjalos e inténtelo de nuevo.` Debajo del botón no aparece ningún resultado.
 
 #### CP-49. Predicción con un campo vacío
-- **Historia:** #HU-PREDICCION
+- **Historia:** #22
 - **Objetivo:** comprobar que dejar un campo en blanco se rechaza.
 - **Precondiciones:** P-5.
 - **Datos de prueba:** `median_income` vacío; `total_bedrooms` = 500.
@@ -673,7 +671,7 @@ Antes de empezar este bloque, borrar del Escritorio el archivo `modelo_prueba.jo
 - **Resultado esperado:** mensaje de aviso **Error de validación** con el texto `Faltan valores en: median_income` y `Corríjalos e inténtelo de nuevo.` Debajo del botón no aparece ningún resultado.
 
 #### CP-50. Predicción sin ningún modelo
-- **Historia:** #HU-PREDICCION
+- **Historia:** #22
 - **Objetivo:** comprobar que no se puede predecir si no hay modelo.
 - **Precondiciones:** P-1 (dataset cargado, sin modelo).
 - **Datos de prueba:** ninguno.
@@ -685,7 +683,7 @@ Antes de empezar este bloque, borrar del Escritorio el archivo `modelo_prueba.jo
 ### 3.9 Flujo completo
 
 #### CP-51. Flujo completo: cargar, crear, guardar, recargar y predecir
-- **Historia:** #HU-CARGA, #HU-COLUMNAS, #HU-SEPARACION, #HU-NULOS, #HU-MODELO, #HU-DESCRIPCION, #HU-GUARDAR, #HU-CARGAR-MODELO, #HU-PREDICCION
+- **Historia:** #10, #14, #11, #41, #26, #16, #33, #21, #24, #22
 - **Objetivo:** comprobar el recorrido completo de la aplicación con un dataset válido.
 - **Precondiciones:** la aplicación está recién arrancada. Existe `data\housing.csv`. No existe `modelo_flujo.joblib` en el Escritorio.
 - **Datos de prueba:** `housing.csv`; entradas `median_income` y `housing_median_age`; salida `median_house_value`; porcentaje 20; semilla 42; media; descripción `Flujo completo`; predicción con `median_income` = 5 y `housing_median_age` = 30.
