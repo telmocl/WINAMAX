@@ -93,7 +93,12 @@ En la carpeta [`docs/`](docs/) se encuentra:
 - `tablas_grandes.md`: técnica elegida para mostrar datasets grandes.
 - `prueba_usabilidad.md`: resultados de la prueba de usabilidad y cambios realizados.
 - `persistencia.md` e `integracion_continua.md`: documentación técnica del proyecto.
+- `plan_pruebas.md` e `informe_pruebas.md`: plan de pruebas funcionales (51 casos) e informe de ejecución previo a la release.
 
 Para contribuir, consulta [`CONTRIBUTING.md`](CONTRIBUTING.md).
+
+## Limitaciones conocidas
+
+No se han registrado limitaciones conocidas en la ejecución previa a esta versión: los 51 casos del plan de pruebas funcionales pasaron tras corregirse las incidencias detectadas en la primera ejecución.
 
 
