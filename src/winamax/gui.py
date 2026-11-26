@@ -1170,7 +1170,7 @@ class VentanaPrincipal(QMainWindow):
 
       try:
           resultado = calcular_prediccion(self.modelo_info, valores_validos)
-          col_salida = getattr(self.modelo_info, "columna_salida", None) or self.target_seleccionado or "Salida"
+          col_salida = getattr(self.modelo_info, "target", None) or self.target_seleccionado or "Salida"
           decimales = getattr(self.modelo_info, "decimales", 4)
           if not isinstance(decimales, int):
               decimales = 4
