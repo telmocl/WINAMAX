@@ -188,7 +188,7 @@ class VentanaPrincipal(QMainWindow):
         selection-background-color: #dbeafe;
         selection-color: #1e3a5f;
       }
-      QLineEdit:focus, QComboBox:focus, QListWidget:focus, QTableView:focus, QTextEdit:focus {
+      QLineEdit:focus, QComboBox:focus, QListWidget:focus, QTableView:focus, QTableWidget:focus, QTextEdit:focus {
         border: 1px solid #4b8ac6;
       }
       QTableView, QTableWidget {
@@ -518,13 +518,28 @@ class VentanaPrincipal(QMainWindow):
     )
 
   def _descartar_modelo(self):
-    """Descarta el modelo actual y deja la descripción deshabilitada."""
+    """Descarta el modelo actual y limpia los controles visuales asociados."""
     self.modelo_info = None
     self.modelo_origen = None
     self.cambios_sin_guardar = False
     self._actualizar_boton_guardar()
+
+    self.txt_descripcion.blockSignals(True)
     self.txt_descripcion.clear()
+    self.txt_descripcion.blockSignals(False)
     self.txt_descripcion.setEnabled(False)
+
+    self.lbl_formula.setText("<b>Fórmula:</b> -")
+    self.tabla_metricas.clearContents()
+
+    self.ax.clear()
+    self.ax.grid(True, linestyle=":", alpha=0.7)
+    self.fig.tight_layout()
+    self.canvas.draw()
+
+    self.configurar_campos_prediccion([])
+    self.grupo_prediccion.setEnabled(False)
+
     self._actualizar_barra_estado()
 
   def _bloquear_interfaz(self, bloquear: bool):
@@ -629,6 +644,10 @@ class VentanaPrincipal(QMainWindow):
     self.test_df = None
     self.train_processed = None
     self.test_processed = None
+
+    self.lbl_info_nulos.setText(
+        "Realice la separación de datos para detectar valores inexistentes."
+    )
 
     self._descartar_modelo()  # Se descarta cualquier modelo anterior
 
