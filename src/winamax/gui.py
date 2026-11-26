@@ -956,7 +956,11 @@ class VentanaPrincipal(QMainWindow):
         return
 
     # Si se cargó desde un archivo, propone por defecto su carpeta y nombre
-    sugerencia = str(self.ruta_actual) if (self.ruta_actual and not self.datos) else ("modelo" + EXTENSION)
+    sugerencia = (
+        str(self.ruta_actual)
+        if (self.ruta_actual is not None and self.datos is None)
+        else ("modelo" + EXTENSION)
+    )
 
     ruta, _ = QFileDialog.getSaveFileName(
         self, "Guardar modelo", sugerencia,
