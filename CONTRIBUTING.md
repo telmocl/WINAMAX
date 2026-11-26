@@ -17,11 +17,9 @@
 
 ### Reglas de fusión
 
-## Reglas de Fusión y CI
-
-- Hacia `dev`:** Una rama de trabajo (`feature`, `fix` o `docs`) solo se puede fusionar en `dev` si todas las pruebas pasan en local (`uv run pytest`) y la última ejecución del flujo de trabajo en GitHub Actions ha terminado en verde (sin errores).
-- Verificación tras fusión:** Después de cada fusión en `dev`, se debe comprobar en la pestaña *Actions* que la ejecución sobre `dev` también finaliza correctamente. Si falla, se abrirá una tarea y rama `fix/` para corregirlo antes de seguir fusionando.
-- Hacia `main`: La rama `dev` solo se fusionará en `main` si su última ejecución en GitHub Actions ha terminado con éxito.
+- **Hacia `dev`:** Una rama de trabajo (`feature`, `fix` o `docs`) solo se puede fusionar en `dev` si todas las pruebas pasan en local (`uv run pytest`) y la última ejecución del flujo de trabajo en GitHub Actions ha terminado en verde (sin errores).
+- **Verificación tras fusión:** Después de cada fusión en `dev`, se debe comprobar en la pestaña *Actions* que la ejecución sobre `dev` también finaliza correctamente. Si falla, se abrirá una tarea y rama `fix/` para corregirlo antes de seguir fusionando.
+- **Hacia `main`:** La rama `dev` solo se fusionará en `main` si su última ejecución en GitHub Actions ha terminado con éxito.
 
 ## Estilo de código
 
@@ -101,7 +99,7 @@ Tkinter y PySide6 / PyQt6.
 Se instala con:
     uv add pyside6
 
-#Investigación librería regresión lineal
+## Investigación librería regresión lineal
 
 ## 1. Comparativa de Librerías Investigadas
 
@@ -109,33 +107,11 @@ Para seleccionar el enfoque adecuado se investigaron tres alternativas principal
 
 | Aspecto | `scikit-learn` | `statsmodels` | `numpy` (`lstsq` / `polyfit`) |
 | :--- | :--- | :--- | :--- |
-| **Facilidad de uso y documentación** :
-    Excelente. API orientada a objetos estandarizada (`fit`, `predict`), muy intuitiva y bien documentada.
-
-    Buena pero académica. Enfocada en estadística formal; requiere añadir la constante manualmente (`add_constant`).
-
-    Baja/Media. Nivel matemático puro. Requiere construir y manipular matrices a mano. |
-| **Regresión Simple y Múltiple** 
-     Misma sintaxis (`.fit(X, y)`) sin importar el número de variables de entrada.
-
-     Requiere definir fórmulas estilo R (vía `patsy`) o construir matrices de diseño explícitas. 
-
-     Requiere construir la matriz de diseño $X$ manualmente para regresión múltiple.
-| **Extracción de Coeficientes** :
-    Directa mediante atributos del modelo: `model.coef_` y `model.intercept_`. 
-    Directa tras el ajuste: `results.params`. 
-    Directa desde el vector de solución devuelto por el solver. 
-| **Métricas de Error** :
-    Integradas y directas mediante `sklearn.metrics` (`mean_squared_error`, `r2_score`). 
-
-    Incluidas en el resumen estadístico (`summary()`), aunque algunas métricas requieren cálculo adicional. 
-
-    No disponibles de forma nativa; deben implementarse manualmente con fórmulas matemáticas.
-
-| **Instalación en el proyecto (`uv`)** :
-    `uv add scikit-learn pandas` 
-    `uv add statsmodels pandas` 
-    `uv add numpy pandas` 
+| **Facilidad de uso y documentación** | Excelente. API orientada a objetos estandarizada (`fit`, `predict`), muy intuitiva y bien documentada. | Buena pero académica. Enfocada en estadística formal; requiere añadir la constante manualmente (`add_constant`). | Baja/Media. Nivel matemático puro. Requiere construir y manipular matrices a mano. |
+| **Regresión Simple y Múltiple** | Misma sintaxis (`.fit(X, y)`) sin importar el número de variables de entrada. | Requiere definir fórmulas estilo R (vía `patsy`) o construir matrices de diseño explícitas. | Requiere construir la matriz de diseño $X$ manualmente para regresión múltiple. |
+| **Extracción de Coeficientes** | Directa mediante atributos del modelo: `model.coef_` y `model.intercept_`. | Directa tras el ajuste: `results.params`. | Directa desde el vector de solución devuelto por el solver. |
+| **Métricas de Error** | Integradas y directas mediante `sklearn.metrics` (`mean_squared_error`, `r2_score`). | Incluidas en el resumen estadístico (`summary()`), aunque algunas métricas requieren cálculo adicional. | No disponibles de forma nativa; deben implementarse manualmente con fórmulas matemáticas. |
+| **Instalación en el proyecto (`uv`)** | `uv add scikit-learn pandas` | `uv add statsmodels pandas` | `uv add numpy pandas` |
 
 ---
 
@@ -156,6 +132,7 @@ Se añadió `scikit-learn` como dependencia oficial del proyecto ejecutando:
 
 ```bash
 uv add scikit-learn pandas numpy
+```
 
 ## 4. Procedimiento de release
 
@@ -196,13 +173,11 @@ Abrir una Pull Request hacia `dev` y fusionarla.
 ```powershell
 git checkout dev
 git pull
-git checkout
-
-main
+git checkout main
 git pull
 git merge dev
 git push origin main
-````
+```
 
 Git abre el editor con el mensaje del merge: guardar y **cerrar la pestaña `MERGE_MSG`** para que continúe. Comprobar con `git status` que el árbol está limpio.
 
@@ -282,5 +257,5 @@ Un miembro del equipo con acceso al repositorio (es privado):
 4. Confirmar que la aplicación arranca como describe el `README.md`.
 
 Si algo falla, no se modifica la etiqueta: se corrige en una rama `fix/...` desde `dev` y se publica una versión nueva.
-````
+```
 
