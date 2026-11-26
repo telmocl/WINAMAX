@@ -1,12 +1,20 @@
-import pandas as pd  
+import logging
+import math
+
+import pandas as pd
 from sklearn.model_selection import train_test_split
+
+logger = logging.getLogger(__name__)
+
+SEMILLA_MAXIMA = 2**32 - 1
+
 
 def realizar_separacion_datos(
         df: pd.DataFrame, test_size_pct: float = 20.0,  random_state: int = 42
 ) -> tuple[pd.DataFrame | None, pd.DataFrame | None, str]:
-    
+
     """Divide el DataFrame en conjuntos de entrenamiento y test de forma reproductible.
-    
+
     Returns: (train_df, test_df, mensaje_error_o_exito)
     """
 
@@ -22,28 +30,40 @@ def realizar_separacion_datos(
             "El porcentaje de test debe ser un número entre 1 y 99."
         )
 
-    #3. Validar semilla (entero)
-    if not isinstance(random_state,int):
+    #3. Validar semilla (entero entre 0 y 2^32 - 1, el rango que admite scikit-learn)
+    if not isinstance(random_state, int) or isinstance(random_state, bool):
         return None, None, "La semilla (seed) debe ser un número entero."
+    if not (0 <= random_state <= SEMILLA_MAXIMA):
+        return (
+            None,
+            None,
+            f"La semilla (seed) debe ser un número entero entre 0 y {SEMILLA_MAXIMA}."
+        )
 
     #Calcular fraccion de test.
     test_size = test_size_pct / 100.0
 
+    #4. Verificar que ningún conjunto quede vacío (scikit-learn redondea el test hacia arriba).
+    filas_test = math.ceil(len(df) * test_size)
+    if filas_test == 0 or len(df) - filas_test == 0:
+        return (
+            None,
+            None,
+            "El porcentaje elegido deja alguno de los conjuntos vacío. Ajusta el porcentaje"
+        )
+
     try:
-        #Realizar separacion usando scikit-learn 
+        #Realizar separacion usando scikit-learn
         train_df, test_df = train_test_split(
             df, test_size = test_size, random_state=random_state
         )
 
-    except Exception as e:
-        return None, None, f"Error al realizar la separación: {str(e)}"
-
-    #4. Verificar que ningún conjunto quede vacío.
-    if len(train_df) == 0 or len(test_df) == 0:
-        return( 
-            None, 
+    except Exception:
+        logger.exception("Error al realizar la separación")
+        return (
             None,
-            "El porcentaje elegido deja alguno de los conjuntos vacío. Ajusta el porcentaje"
+            None,
+            "No se pudo realizar la separación. Revise el porcentaje de test y la semilla."
         )
 
     return train_df, test_df, "Separación realizada con éxito."
