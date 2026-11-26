@@ -19,12 +19,12 @@ def realizar_separacion_datos(
         return (
             None,
             None,
-            "El porcentaje de test debe ser un numero entre 1 y 99."
+            "El porcentaje de test debe ser un número entre 1 y 99."
         )
 
     #3. Validar semilla (entero)
     if not isinstance(random_state,int):
-        return None, None, "La semilla (seed) debe ser un numero entero."
+        return None, None, "La semilla (seed) debe ser un número entero."
 
     #Calcular fraccion de test.
     test_size = test_size_pct / 100.0
@@ -46,4 +46,4 @@ def realizar_separacion_datos(
             "El porcentaje elegido deja alguno de los conjuntos vacío. Ajusta el porcentaje"
         )
 
-    return train_df, test_df, "Separacion realizada con éxito."
+    return train_df, test_df, "Separación realizada con éxito."
