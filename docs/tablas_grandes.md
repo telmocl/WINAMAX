@@ -26,7 +26,7 @@ Se probó el mismo dataset en la versión anterior y en la nueva.
 |---|---|---|
 | Tiempo de carga | [4] s | [4] s (equivalente) |
 | Desplazamiento por la tabla | Fluido | Fluido |
-| Ventana durante la carga | [1] | [1] |
+| Ventana durante la carga | Se congela / no responde | Responde con barra de progreso y botones deshabilitados |
 | Acceso a todas las filas (última fila) | [SI] | [SI] |
 
 **Conclusión:** con este dataset no hay diferencia apreciable entre ambas versiones. Es el resultado esperado, porque la versión anterior ya usaba `QTableView` con un modelo propio, es decir, scroll virtual. Los cambios añadidos (filas fijas, muestreo reducido y carga en hilo) no alteran el resultado con 20.000 filas; su efecto se aprecia con archivos más grandes.
@@ -34,9 +34,9 @@ Se probó el mismo dataset en la versión anterior y en la nueva.
 
 Capturas:
 
-![Tabla con la versión anterior](img/antes_tabla.png)
+![Tabla con la versión anterior](antes_tabla.png)
 
-![Tabla con la versión nueva](img/despues_tabla.png)
+![Tabla con la versión nueva](despues_tabla.png)
 
 ## Cómo reproducir la medición
 
