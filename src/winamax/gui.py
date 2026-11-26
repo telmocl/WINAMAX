@@ -837,7 +837,11 @@ class VentanaPrincipal(QMainWindow):
     total_train_nulos = sum(train_m.values())
     total_test_nulos = sum(test_m.values())
 
-    info_texto = f"<b>{mensaje}</b><br><br><b>Valores inexistentes detectados:</b><br>"
+    info_texto = (
+        f"<b>{mensaje}</b><br>"
+        f"Entrenamiento: {len(self.train_df)} filas | Test: {len(self.test_df)} filas<br><br>"
+        f"<b>Valores inexistentes detectados:</b><br>"
+    )
     for col in columnas_modelo:
       info_texto += f"- <b>{col}</b> -> Train: {train_m[col]} | Test: {test_m[col]}<br>"
 
