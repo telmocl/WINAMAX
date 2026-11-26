@@ -567,7 +567,7 @@ Antes de empezar este bloque, borrar del Escritorio el archivo `modelo_prueba.jo
   1. En el cuadro **Descripción (opcional):**, borrar el texto y escribir `Otro modelo`.
   2. Pulsar **Guardar modelo**.
   3. En la ventana **Guardar modelo**, ir al Escritorio, escribir `modelo_prueba` y pulsar **Guardar**.
-  4. En la confirmación que aparece, pulsar **No**.
+  4. En la confirmación que aparece, pulsar **No**. Después, en la ventana **Guardar modelo**, pulsar **Cancelar**.
 - **Resultado esperado:** tras el paso 2 se abre la ventana **Guardar modelo**. Tras el paso 3 aparece una confirmación que indica que `modelo_prueba.joblib` ya existe y pregunta si se desea reemplazar. Tras el paso 4 no aparece el mensaje **Modelo guardado**, la fecha de modificación de `modelo_prueba.joblib` no cambia y la barra de estado sigue mostrando `Modelo con cambios sin guardar`.
 
 ### 3.7 Recuperación del modelo desde disco
@@ -711,61 +711,75 @@ Antes de empezar este bloque, borrar del Escritorio el archivo `modelo_prueba.jo
 
 ## 4. Registro de ejecución
 
-Rellenar una fila por caso en la primera ejecución. En la segunda ejecución (casos fallidos y CP-51, tras las correcciones), añadir una fila nueva por caso con `2` en la columna **Ejecución**. **Estado:** `Correcto` o `Fallido`. Si el caso falla, en **Resultado obtenido** se describe lo que mostró la aplicación.
+**Estado:** `Correcto` o `Fallido`. Si el caso falla, en **Resultado obtenido** se describe lo que mostró la aplicación.
+
+- **Ejecución 1:** primera ejecución de cada caso sobre la rama `dev`, el 26/11/2026. CP-08 a CP-50 (salvo CP-42 a CP-44 y CP-46) se ejecutaron antes de las correcciones. CP-01 a CP-07, CP-42 a CP-44, CP-46 y CP-51 se ejecutaron por primera vez después de fusionar las correcciones #126 a #129.
+- **Ejecución 2:** repetición de los casos fallidos y del flujo completo (CP-51) tras fusionar las correcciones (#126 a #130).
+- Los casos marcados como ejecutados por "Claude (supervisado por Vilouu)" se realizaron con el asistente Claude manejando la interfaz en el equipo de Vilouu, siguiendo únicamente los pasos escritos.
 
 | Caso | Ejecución | Resultado obtenido | Estado | Ejecutado por | Fecha |
 |---|---|---|---|---|---|
-| CP-01 | 1 | | | | |
-| CP-02 | 1 | | | | |
-| CP-03 | 1 | | | | |
-| CP-04 | 1 | | | | |
-| CP-05 | 1 | | | | |
-| CP-06 | 1 | | | | |
-| CP-07 | 1 | | | | |
-| CP-08 | 1 | | | | |
-| CP-09 | 1 | | | | |
-| CP-10 | 1 | | | | |
-| CP-11 | 1 | | | | |
-| CP-12 | 1 | | | | |
-| CP-13 | 1 | | | | |
-| CP-14 | 1 | | | | |
-| CP-15 | 1 | | | | |
-| CP-16 | 1 | | | | |
-| CP-17 | 1 | | | | |
-| CP-18 | 1 | | | | |
-| CP-19 | 1 | | | | |
-| CP-20 | 1 | | | | |
-| CP-21 | 1 | | | | |
-| CP-22 | 1 | | | | |
-| CP-23 | 1 | | | | |
-| CP-24 | 1 | | | | |
-| CP-25 | 1 | | | | |
-| CP-26 | 1 | | | | |
-| CP-27 | 1 | | | | |
-| CP-28 | 1 | | | | |
-| CP-29 | 1 | | | | |
-| CP-30 | 1 | | | | |
-| CP-31 | 1 | | | | |
-| CP-32 | 1 | | | | |
-| CP-33 | 1 | | | | |
-| CP-34 | 1 | | | | |
-| CP-35 | 1 | | | | |
-| CP-36 | 1 | | | | |
-| CP-37 | 1 | | | | |
-| CP-38 | 1 | | | | |
-| CP-39 | 1 | | | | |
-| CP-40 | 1 | | | | |
-| CP-41 | 1 | | | | |
-| CP-42 | 1 | | | | |
-| CP-43 | 1 | | | | |
-| CP-44 | 1 | | | | |
-| CP-45 | 1 | | | | |
-| CP-46 | 1 | | | | |
-| CP-47 | 1 | | | | |
-| CP-48 | 1 | | | | |
-| CP-49 | 1 | | | | |
-| CP-50 | 1 | | | | |
-| CP-51 | 1 | | | | |
+| CP-01 | 1 | Coincide con el resultado esperado. | Correcto | Claude (supervisado por Vilouu) | 26/11/2026 |
+| CP-02 | 1 | Coincide con el resultado esperado. | Correcto | Claude (supervisado por Vilouu) | 26/11/2026 |
+| CP-03 | 1 | Coincide con el resultado esperado. | Correcto | Claude (supervisado por Vilouu) | 26/11/2026 |
+| CP-04 | 1 | Coincide con el resultado esperado. Observación: tras el texto esperado se añade el detalle técnico en inglés "No columns to parse from file". | Correcto | Claude (supervisado por Vilouu) | 26/11/2026 |
+| CP-05 | 1 | Coincide con el resultado esperado. | Correcto | Claude (supervisado por Vilouu) | 26/11/2026 |
+| CP-06 | 1 | Coincide con el resultado esperado. Observación: se añade el detalle técnico en inglés "Excel file format cannot be determined, you must specify an engine manually.". | Correcto | Claude (supervisado por Vilouu) | 26/11/2026 |
+| CP-07 | 1 | Coincide con el resultado esperado. | Correcto | Claude (supervisado por Vilouu) | 26/11/2026 |
+| CP-08 | 1 | Coincide con el resultado esperado. | Correcto | Vilouu | 26/11/2026 |
+| CP-09 | 1 | Coincide con el resultado esperado. | Correcto | Vilouu | 26/11/2026 |
+| CP-10 | 1 | Coincide con el resultado esperado. | Correcto | Vilouu | 26/11/2026 |
+| CP-11 | 1 | Coincide con el resultado esperado. | Correcto | Vilouu | 26/11/2026 |
+| CP-12 | 1 | Coincide con el resultado esperado. | Correcto | Vilouu | 26/11/2026 |
+| CP-13 | 1 | Coincide con el resultado esperado. | Correcto | Vilouu | 26/11/2026 |
+| CP-14 | 1 | Coincide con el resultado esperado. | Correcto | Vilouu | 26/11/2026 |
+| CP-15 | 1 | Coincide con el resultado esperado. | Correcto | Claude (supervisado por Vilouu) | 26/11/2026 |
+| CP-16 | 1 | El mensaje no indica el número de filas de entrenamiento (16512) ni de test (4128); las líneas de valores inexistentes coinciden (total_bedrooms Train: 0 \| Test: 207). | Fallido | Claude (supervisado por Vilouu) | 26/11/2026 |
+| CP-17 | 1 | Coincide con el resultado esperado. | Correcto | Claude (supervisado por Vilouu) | 26/11/2026 |
+| CP-18 | 1 | Coincide con el resultado esperado. | Correcto | Claude (supervisado por Vilouu) | 26/11/2026 |
+| CP-19 | 1 | El texto dice "un numero entre 1 y 99" (sin tilde); resto correcto. | Fallido | Claude (supervisado por Vilouu) | 26/11/2026 |
+| CP-20 | 1 | El mensaje no indica el número de filas de entrenamiento (20433) ni de test (207); resto correcto. | Fallido | Claude (supervisado por Vilouu) | 26/11/2026 |
+| CP-21 | 1 | El mensaje no indica el número de filas de entrenamiento (206) ni de test (20434); resto correcto. | Fallido | Claude (supervisado por Vilouu) | 26/11/2026 |
+| CP-22 | 1 | El texto dice "un numero entre 1 y 99" (sin tilde); resto correcto. | Fallido | Claude (supervisado por Vilouu) | 26/11/2026 |
+| CP-23 | 1 | Coincide con el resultado esperado. | Correcto | Claude (supervisado por Vilouu) | 26/11/2026 |
+| CP-24 | 1 | Coincide con el resultado esperado. | Correcto | Claude (supervisado por Vilouu) | 26/11/2026 |
+| CP-25 | 1 | Mensaje técnico en inglés "Error al realizar la separación: The random_state parameter of train_test_split must be an int in the range [0, 4294967295]... Got -1 instead.". | Fallido | Claude (supervisado por Vilouu) | 26/11/2026 |
+| CP-26 | 1 | Mensaje técnico en inglés "Error al realizar la separación: With n_samples=5, test_size=0.99 and train_size=None, the resulting train set will be empty. Adjust any of the aforementioned parameters.". | Fallido | Claude (supervisado por Vilouu) | 26/11/2026 |
+| CP-27 | 1 | Coincide con el resultado esperado. | Correcto | Claude (supervisado por Vilouu) | 26/11/2026 |
+| CP-28 | 1 | Coincide con el resultado esperado. | Correcto | Claude (supervisado por Vilouu) | 26/11/2026 |
+| CP-29 | 1 | Coincide con el resultado esperado. | Correcto | Claude (supervisado por Vilouu) | 26/11/2026 |
+| CP-30 | 1 | Coincide con el resultado esperado. | Correcto | Claude (supervisado por Vilouu) | 26/11/2026 |
+| CP-31 | 1 | Coincide con el resultado esperado. | Correcto | Claude (supervisado por Vilouu) | 26/11/2026 |
+| CP-32 | 1 | Coincide con el resultado esperado. | Correcto | Claude (supervisado por Vilouu) | 26/11/2026 |
+| CP-33 | 1 | Coincide con el resultado esperado. | Correcto | Claude (supervisado por Vilouu) | 26/11/2026 |
+| CP-34 | 1 | Coincide con el resultado esperado. | Correcto | Claude (supervisado por Vilouu) | 26/11/2026 |
+| CP-35 | 1 | Misma observación que CP-36 sobre la tabla de métricas. | Correcto | Claude (supervisado por Vilouu) | 26/11/2026 |
+| CP-36 | 1 | Fórmula, R², MSE y gráfico coinciden. Observación: la tabla de métricas es tan baja que la fila MSE solo se ve desplazándose dentro de ella, y la columna Train corta el valor (6991447170.1…). | Correcto | Claude (supervisado por Vilouu) | 26/11/2026 |
+| CP-37 | 1 | Se repitió la separación con semilla 0 en vez de 42; la fórmula, métricas, gráfico y predicción se limpian, Guardar y sección 6 deshabilitados, barra Modelo: ninguno. | Correcto | Claude (supervisado por Vilouu) | 26/11/2026 |
+| CP-38 | 1 | Coincide con el resultado esperado. | Correcto | Claude (supervisado por Vilouu) | 26/11/2026 |
+| CP-39 | 1 | Coincide con el resultado esperado. | Correcto | Claude (supervisado por Vilouu) | 26/11/2026 |
+| CP-40 | 1 | Coincide con el resultado esperado. | Correcto | Claude (supervisado por Vilouu) | 26/11/2026 |
+| CP-41 | 1 | Tras guardar una vez, al pulsar Guardar modelo de nuevo no se abre la ventana Guardar modelo ni aparece ningún mensaje (no pasa nada). | Fallido | Claude (supervisado por Vilouu) | 26/11/2026 |
+| CP-42 | 1 | La aplicación tenia antes cargado modelo_prueba.joblib, que se mantiene tras el error. | Correcto | Claude (supervisado por Vilouu) | 26/11/2026 |
+| CP-43 | 1 | Coincide con el resultado esperado. | Correcto | Claude (supervisado por Vilouu) | 26/11/2026 |
+| CP-44 | 1 | Paso 5: se volvió a cargar el modelo con Cargar modelo sin reiniciar la aplicación; la confirmación de reemplazo es la de Windows. | Correcto | Claude (supervisado por Vilouu) | 26/11/2026 |
+| CP-45 | 1 | Coincide con el resultado esperado. | Correcto | Claude (supervisado por Vilouu) | 26/11/2026 |
+| CP-46 | 1 | El resultado se muestra como "Salida = 253990.2937" en lugar de "median_house_value = 253990.2937" (el valor es correcto). | Fallido | Claude (supervisado por Vilouu) | 26/11/2026 |
+| CP-47 | 1 | Coincide con el resultado esperado. | Correcto | Claude (supervisado por Vilouu) | 26/11/2026 |
+| CP-48 | 1 | Coincide con el resultado esperado. Observación: si antes se había hecho una predicción, su resultado sigue visible debajo del botón tras el error. | Correcto | Claude (supervisado por Vilouu) | 26/11/2026 |
+| CP-49 | 1 | Misma observación que CP-48. | Correcto | Claude (supervisado por Vilouu) | 26/11/2026 |
+| CP-50 | 1 | Coincide con el resultado esperado. | Correcto | Claude (supervisado por Vilouu) | 26/11/2026 |
+| CP-51 | 1 | Pasos 1-13 correctos (fórmula, métricas, guardado, descripción "Flujo completo" y A = "median_house_value = 258138.8768"), pero tras reiniciar y cargar el modelo el resultado B se muestra como "Salida = 258138.8768" (mismo valor, distinta etiqueta). Es el mismo error que CP-46. | Fallido | Claude (supervisado por Vilouu) | 26/11/2026 |
+| CP-16 | 2 | Coincide con el resultado esperado. | Correcto | Claude (supervisado por Vilouu) | 26/11/2026 |
+| CP-19 | 2 | Coincide con el resultado esperado. | Correcto | Claude (supervisado por Vilouu) | 26/11/2026 |
+| CP-20 | 2 | Coincide con el resultado esperado. | Correcto | Claude (supervisado por Vilouu) | 26/11/2026 |
+| CP-21 | 2 | Coincide con el resultado esperado. | Correcto | Claude (supervisado por Vilouu) | 26/11/2026 |
+| CP-22 | 2 | Coincide con el resultado esperado. | Correcto | Claude (supervisado por Vilouu) | 26/11/2026 |
+| CP-25 | 2 | "La semilla (seed) debe ser un número entero entre 0 y 4294967295.". | Correcto | Claude (supervisado por Vilouu) | 26/11/2026 |
+| CP-26 | 2 | Coincide con el resultado esperado. | Correcto | Claude (supervisado por Vilouu) | 26/11/2026 |
+| CP-41 | 2 | Con modelo_flujo.joblib en lugar de modelo_prueba.joblib; tras pulsar No en la confirmación de Windows hay que pulsar Cancelar en la ventana Guardar modelo. | Correcto | Claude (supervisado por Vilouu) | 26/11/2026 |
+| CP-46 | 2 | Coincide con el resultado esperado. | Correcto | Claude (supervisado por Vilouu) | 26/11/2026 |
+| CP-51 | 2 | Se repiten los pasos 12 a 14: cargar modelo_flujo.joblib en la aplicación recién arrancada y predecir; B = median_house_value = 258138.8768. | Correcto | Claude (supervisado por Vilouu) | 26/11/2026 |
 
 ## Anexo: origen de los valores esperados
 
