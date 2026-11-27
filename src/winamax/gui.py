@@ -1115,7 +1115,7 @@ class VentanaPrincipal(QMainWindow):
 
       self.btn_predecir = QPushButton("Realizar predicción")
       self.btn_predecir.clicked.connect(self._on_click_realizar_prediccion)
-      layout_principal_pred.addWidget(self.btn_predecir)
+      layout_principal_pred.addWidget(self.btn_predecir, alignment=Qt.AlignmentFlag.AlignLeft)
 
       self.lbl_resultado_prediccion = QLabel("")
       layout_principal_pred.addWidget(self.lbl_resultado_prediccion)
