@@ -9,6 +9,8 @@ from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 import pandas as pd
 from PySide6.QtCore import (
     QAbstractTableModel,
+    QEvent,
+    QItemSelectionModel,
     QModelIndex,
     QObject,
     Qt,
@@ -21,7 +23,8 @@ from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
     QFileDialog,
-    QFormLayout,
+    QFrame,
+    QGridLayout,
     QGroupBox,
     QHBoxLayout,
     QHeaderView,
@@ -35,8 +38,6 @@ from PySide6.QtWidgets import (
     QPushButton,
     QRadioButton,
     QScrollArea,
-    QTableWidget,
-    QTableWidgetItem,
     QTableView,
     QTextEdit,
     QVBoxLayout,
@@ -180,7 +181,7 @@ class VentanaPrincipal(QMainWindow):
         background-color: #cbd5e1;
         color: #64748b;
       }
-      QLineEdit, QComboBox, QListWidget, QTableView, QTableWidget, QTextEdit {
+      QLineEdit, QComboBox, QListWidget, QTableView, QTextEdit {
         background-color: #ffffff;
         border: 1px solid #cbd5e1;
         border-radius: 5px;
@@ -188,10 +189,10 @@ class VentanaPrincipal(QMainWindow):
         selection-background-color: #dbeafe;
         selection-color: #1e3a5f;
       }
-      QLineEdit:focus, QComboBox:focus, QListWidget:focus, QTableView:focus, QTableWidget:focus, QTextEdit:focus {
+      QLineEdit:focus, QComboBox:focus, QListWidget:focus, QTableView:focus, QTextEdit:focus {
         border: 1px solid #4b8ac6;
       }
-      QTableView, QTableWidget {
+      QTableView {
         gridline-color: #e2e8f0;
         alternate-background-color: #f8fafc;
       }
@@ -203,6 +204,17 @@ class VentanaPrincipal(QMainWindow):
         border-bottom: 1px solid #dce3ec;
         padding: 7px;
         font-weight: 600;
+      }
+      QFrame#panelMetricas {
+        background-color: #f8fafc;
+        border: 1px solid #dce3ec;
+        border-radius: 6px;
+      }
+      QFrame#panelFormula {
+        background-color: #eff6ff;
+        border: 1px solid #bfdbfe;
+        border-left: 4px solid #2563a6;
+        border-radius: 6px;
       }
       QRadioButton {
         spacing: 7px;
@@ -232,6 +244,8 @@ class VentanaPrincipal(QMainWindow):
     self.ruta_actual: Path | None = None
     self.nombre_dataset: str | None = None
     self.modelo_tabla: ModeloTabla | None = None
+    self._sincronizando_columnas: bool = False
+    self._columnas_marcadas: set[int] = set()
     self.features_seleccionadas: list[str] = []
     self.target_seleccionado: str | None = None
     self.train_df: pd.DataFrame | None = None
@@ -289,6 +303,8 @@ class VentanaPrincipal(QMainWindow):
 
     self.tabla = QTableView()
     self.tabla.setEditTriggers(QAbstractItemView.NoEditTriggers)
+    self.tabla.setSelectionBehavior(QAbstractItemView.SelectColumns)
+    self.tabla.setSelectionMode(QAbstractItemView.MultiSelection)
     self.tabla.setHorizontalScrollMode(QAbstractItemView.ScrollPerPixel)
     self.tabla.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
     self.tabla.setAlternatingRowColors(True)
@@ -298,6 +314,9 @@ class VentanaPrincipal(QMainWindow):
     self.tabla.verticalHeader().setSectionResizeMode(QHeaderView.Fixed)
     self.tabla.verticalHeader().setDefaultSectionSize(26)
     self.tabla.horizontalHeader().setResizeContentsPrecision(200)
+    self.tabla.horizontalHeader().setSectionsClickable(True)
+    self.tabla.viewport().installEventFilter(self)
+    self.tabla.horizontalHeader().viewport().installEventFilter(self)
     layout_tabla.addWidget(self.tabla)
 
     layout_principal.addWidget(self.grupo_tabla, stretch=1)
@@ -315,6 +334,7 @@ class VentanaPrincipal(QMainWindow):
     self.list_features = QListWidget()
     self.list_features.setSelectionMode(QListWidget.MultiSelection)
     self.list_features.setMinimumHeight(110)
+    self.list_features.itemSelectionChanged.connect(self._on_entradas_cambiadas)
     layout_entradas.addWidget(self.list_features)
     layout_dos_columnas.addLayout(layout_entradas, stretch=2)
 
@@ -363,16 +383,17 @@ class VentanaPrincipal(QMainWindow):
     self.btn_separar.clicked.connect(self.ejecutar_separacion)
     layout_split.addWidget(self.btn_separar, alignment=Qt.AlignLeft)
 
+    self.lbl_info_nulos = QLabel("Realice la separación de datos para ver el resumen y detectar valores inexistentes.")
+    self.lbl_info_nulos.setWordWrap(True)
+    self.lbl_info_nulos.setStyleSheet("margin-top: 6px; color: #334b68;")
+    layout_split.addWidget(self.lbl_info_nulos)
+
     layout_principal.addWidget(self.grupo_split)
 
     # --- 4. Preprocesamiento de Valores Inexistentes ---
     self.grupo_preproc = QGroupBox("4. Preprocesar valores inexistentes")
     self.grupo_preproc.setEnabled(False)
     layout_preproc = QVBoxLayout(self.grupo_preproc)
-
-    self.lbl_info_nulos = QLabel("Realice la separación de datos para detectar valores inexistentes.")
-    self.lbl_info_nulos.setWordWrap(True)
-    layout_preproc.addWidget(self.lbl_info_nulos)
 
     layout_estrategias = QVBoxLayout()
     self.rb_drop = QRadioButton("Eliminar las filas que contengan valores inexistentes")
@@ -417,13 +438,7 @@ class VentanaPrincipal(QMainWindow):
     self.btn_crear_modelo.clicked.connect(self.crear_modelo)
     layout_modelo.addWidget(self.btn_crear_modelo, alignment=Qt.AlignLeft)
 
-    # Fórmula del modelo
-    self.lbl_formula = QLabel("<b>Fórmula:</b> -")
-    self.lbl_formula.setWordWrap(True)
-    self.lbl_formula.setStyleSheet("color: #1e3a5f; margin-top: 6px;")
-    layout_modelo.addWidget(self.lbl_formula)
-
-    # Área de texto para Descripción del modelo
+    # Área de texto ancha para Descripción del modelo
     layout_modelo.addWidget(QLabel("<b>Descripción (opcional):</b>"))
     self.txt_descripcion = QTextEdit()
     self.txt_descripcion.setPlaceholderText("Escriba aquí una descripción o propósito de este modelo...")
@@ -432,15 +447,74 @@ class VentanaPrincipal(QMainWindow):
     self.txt_descripcion.textChanged.connect(self.actualizar_descripcion_modelo)
     layout_modelo.addWidget(self.txt_descripcion)
 
-    # Métricas de error (Tabla compacta)
-    layout_modelo.addWidget(QLabel("Métricas de Error:"))
-    self.tabla_metricas = QTableWidget(2, 2)
-    self.tabla_metricas.setHorizontalHeaderLabels(["Entrenamiento (Train)", "Test"])
-    self.tabla_metricas.setVerticalHeaderLabels(["R² (Coeff)", "MSE (Error)"])
-    self.tabla_metricas.setMaximumHeight(95)
-    self.tabla_metricas.horizontalHeader().setStretchLastSection(True)
-    layout_modelo.addWidget(self.tabla_metricas)
+    # Resultados: Métricas de error a la izquierda y Fórmula (Solución) destacada a la derecha
+    layout_resultados = QHBoxLayout()
+    layout_resultados.setSpacing(16)
 
+    # Bloque izquierdo: Métricas de Error
+    layout_bloque_metricas = QVBoxLayout()
+    layout_bloque_metricas.addWidget(QLabel("<b>Métricas de Error:</b>"))
+
+    self.panel_metricas = QFrame()
+    self.panel_metricas.setObjectName("panelMetricas")
+    grid_metricas = QGridLayout(self.panel_metricas)
+    grid_metricas.setContentsMargins(14, 10, 14, 10)
+    grid_metricas.setHorizontalSpacing(22)
+    grid_metricas.setVerticalSpacing(8)
+
+    lbl_hdr_train = QLabel("<b>Entrenamiento (Train)</b>")
+    lbl_hdr_test = QLabel("<b>Test</b>")
+    lbl_hdr_r2 = QLabel("<b>R² (Coeff):</b>")
+    lbl_hdr_mse = QLabel("<b>MSE (Error):</b>")
+
+    self.lbl_r2_train = QLabel("-")
+    self.lbl_r2_test = QLabel("-")
+    self.lbl_mse_train = QLabel("-")
+    self.lbl_mse_test = QLabel("-")
+
+    grid_metricas.addWidget(lbl_hdr_train, 0, 1)
+    grid_metricas.addWidget(lbl_hdr_test, 0, 2)
+    grid_metricas.addWidget(lbl_hdr_r2, 1, 0)
+    grid_metricas.addWidget(self.lbl_r2_train, 1, 1)
+    grid_metricas.addWidget(self.lbl_r2_test, 1, 2)
+    grid_metricas.addWidget(lbl_hdr_mse, 2, 0)
+    grid_metricas.addWidget(self.lbl_mse_train, 2, 1)
+    grid_metricas.addWidget(self.lbl_mse_test, 2, 2)
+
+    layout_bloque_metricas.addWidget(self.panel_metricas)
+    layout_resultados.addLayout(layout_bloque_metricas, stretch=0)
+
+    # Bloque derecho: Fórmula (Solución del modelo)
+    layout_bloque_formula = QVBoxLayout()
+    layout_bloque_formula.addWidget(QLabel("<b>Solución del Modelo:</b>"))
+
+    self.panel_formula = QFrame()
+    self.panel_formula.setObjectName("panelFormula")
+    layout_panel_formula = QVBoxLayout(self.panel_formula)
+    layout_panel_formula.setContentsMargins(16, 12, 16, 12)
+    layout_panel_formula.setSpacing(4)
+
+    lbl_subtitulo_formula = QLabel("Fórmula de regresión obtenida:")
+    lbl_subtitulo_formula.setStyleSheet(
+        "color: #2563a6; font-size: 9pt; font-weight: 600; background: transparent;"
+    )
+    layout_panel_formula.addWidget(lbl_subtitulo_formula)
+
+    self.lbl_formula = QLabel("-")
+    self.lbl_formula.setWordWrap(True)
+    self.lbl_formula.setTextInteractionFlags(Qt.TextSelectableByMouse)
+    self.lbl_formula.setStyleSheet(
+        "color: #1e3a5f; font-size: 13pt; font-weight: 700; background: transparent;"
+    )
+    layout_panel_formula.addWidget(self.lbl_formula)
+    layout_panel_formula.addStretch(1)
+
+    layout_bloque_formula.addWidget(self.panel_formula)
+    layout_resultados.addLayout(layout_bloque_formula, stretch=1)
+
+    layout_modelo.addLayout(layout_resultados)
+
+    # Botón Guardar modelo debajo de la solución/métricas y justo antes de la gráfica
     self.btn_guardar = QPushButton("Guardar modelo")
     self.btn_guardar.setMinimumHeight(36)
     self.btn_guardar.setMaximumWidth(260)
@@ -480,6 +554,97 @@ class VentanaPrincipal(QMainWindow):
         self.grupo_modelo,
         self.grupo_prediccion,
     ]
+
+  # ------------------------------------------------------------------
+  # Sincronización múltiple entre columnas de la tabla y Entradas
+  # ------------------------------------------------------------------
+  def eventFilter(self, source, event):
+    if (
+        event.type() == QEvent.MouseButtonPress
+        and event.button() == Qt.LeftButton
+        and self.datos is not None
+        and self.modelo_tabla is not None
+    ):
+      pos = event.position().toPoint()
+      if source is self.tabla.viewport():
+        index = self.tabla.indexAt(pos)
+        if index.isValid():
+          self._alternar_columna_tabla(index.column())
+          return True
+      elif source is self.tabla.horizontalHeader().viewport():
+        col = self.tabla.horizontalHeader().logicalIndexAt(pos)
+        if 0 <= col < self.modelo_tabla.columnCount():
+          self._alternar_columna_tabla(col)
+          return True
+    return super().eventFilter(source, event)
+
+  def _alternar_columna_tabla(self, col: int):
+    if col in self._columnas_marcadas:
+      self._columnas_marcadas.remove(col)
+    else:
+      self._columnas_marcadas.add(col)
+
+    self._aplicar_seleccion_columnas_tabla()
+    self._sincronizar_entradas_desde_tabla()
+
+  def _aplicar_seleccion_columnas_tabla(self):
+    sel_model = self.tabla.selectionModel()
+    if sel_model is None or self.modelo_tabla is None:
+      return
+
+    sel_model.clearSelection()
+    for col in sorted(self._columnas_marcadas):
+      top_left = self.modelo_tabla.index(0, col)
+      sel_model.select(
+          top_left,
+          QItemSelectionModel.Select | QItemSelectionModel.Columns,
+      )
+
+  def _sincronizar_entradas_desde_tabla(self):
+    if self.datos is None or self._sincronizando_columnas:
+      return
+
+    nombres_seleccionados = {
+        str(self.datos.columns[c])
+        for c in self._columnas_marcadas
+        if 0 <= c < len(self.datos.columns)
+    }
+
+    self._sincronizando_columnas = True
+    try:
+      for i in range(self.list_features.count()):
+        item = self.list_features.item(i)
+        item.setSelected(item.text() in nombres_seleccionados)
+    finally:
+      self._sincronizando_columnas = False
+
+  def _on_entradas_cambiadas(self):
+    if self.datos is None or self._sincronizando_columnas:
+      return
+
+    seleccionados = {item.text() for item in self.list_features.selectedItems()}
+    self._sincronizando_columnas = True
+    try:
+      self._columnas_marcadas = {
+          col_idx
+          for col_idx, col in enumerate(self.datos.columns)
+          if str(col) in seleccionados
+      }
+      self._aplicar_seleccion_columnas_tabla()
+    finally:
+      self._sincronizando_columnas = False
+
+  def _establecer_metricas(
+      self,
+      r2_train: str = "-",
+      r2_test: str = "-",
+      mse_train: str = "-",
+      mse_test: str = "-",
+  ):
+    self.lbl_r2_train.setText(r2_train)
+    self.lbl_r2_test.setText(r2_test)
+    self.lbl_mse_train.setText(mse_train)
+    self.lbl_mse_test.setText(mse_test)
 
   # ------------------------------------------------------------------
   # Mensajes al usuario (siempre mediante ventanas emergentes)
@@ -529,8 +694,8 @@ class VentanaPrincipal(QMainWindow):
     self.txt_descripcion.blockSignals(False)
     self.txt_descripcion.setEnabled(False)
 
-    self.lbl_formula.setText("<b>Fórmula:</b> -")
-    self.tabla_metricas.clearContents()
+    self.lbl_formula.setText("-")
+    self._establecer_metricas()
 
     self.ax.clear()
     self.ax.grid(True, linestyle=":", alpha=0.7)
@@ -617,6 +782,7 @@ class VentanaPrincipal(QMainWindow):
     self.datos = datos
     self.ruta_actual = ruta
     self.nombre_dataset = ruta.name
+    self._columnas_marcadas.clear()
 
     self.lbl_ruta.setText(str(ruta))
     self.lbl_ruta.setStyleSheet("color: #243247;")
@@ -629,14 +795,18 @@ class VentanaPrincipal(QMainWindow):
     self.tabla.setModel(self.modelo_tabla)
     self.tabla.resizeColumnsToContents()
 
-    self.list_features.clear()
-    self.combo_target.clear()
-    self.combo_target.addItem("-- Seleccionar Salida --", None)
+    self._sincronizando_columnas = True
+    try:
+      self.list_features.clear()
+      self.combo_target.clear()
+      self.combo_target.addItem("-- Seleccionar Salida --", None)
 
-    for col in datos.columns:
-      col_str = str(col)
-      self.list_features.addItem(QListWidgetItem(col_str))
-      self.combo_target.addItem(col_str, col_str)
+      for col in datos.columns:
+        col_str = str(col)
+        self.list_features.addItem(QListWidgetItem(col_str))
+        self.combo_target.addItem(col_str, col_str)
+    finally:
+      self._sincronizando_columnas = False
 
     self.features_seleccionadas = []
     self.target_seleccionado = None
@@ -646,7 +816,7 @@ class VentanaPrincipal(QMainWindow):
     self.test_processed = None
 
     self.lbl_info_nulos.setText(
-        "Realice la separación de datos para detectar valores inexistentes."
+        "Realice la separación de datos para ver el resumen y detectar valores inexistentes."
     )
 
     self._descartar_modelo()  # Se descarta cualquier modelo anterior
@@ -705,6 +875,7 @@ class VentanaPrincipal(QMainWindow):
     self.ruta_actual = ruta
     self.datos = None
     self.nombre_dataset = None
+    self._columnas_marcadas.clear()
     self.train_df = None
     self.test_df = None
     self.train_processed = None
@@ -720,7 +891,7 @@ class VentanaPrincipal(QMainWindow):
     self.grupo_preproc.setEnabled(False)
 
     # Mostrar información del modelo
-    self.lbl_formula.setText(f"<b>Fórmula:</b> {modelo_info.formula}")
+    self.lbl_formula.setText(modelo_info.formula)
 
     self.txt_descripcion.blockSignals(True)
     self.txt_descripcion.setText(modelo_info.descripcion or "")
@@ -728,10 +899,12 @@ class VentanaPrincipal(QMainWindow):
     self.txt_descripcion.setEnabled(True)
 
     metricas = modelo_info.metricas
-    self.tabla_metricas.setItem(0, 0, QTableWidgetItem(f"{metricas.get('r2_train', 0):.4f}"))
-    self.tabla_metricas.setItem(1, 0, QTableWidgetItem(f"{metricas.get('mse_train', 0):.4f}"))
-    self.tabla_metricas.setItem(0, 1, QTableWidgetItem(f"{metricas.get('r2_test', 0):.4f}"))
-    self.tabla_metricas.setItem(1, 1, QTableWidgetItem(f"{metricas.get('mse_test', 0):.4f}"))
+    self._establecer_metricas(
+        r2_train=f"{metricas.get('r2_train', 0):.4f}",
+        r2_test=f"{metricas.get('r2_test', 0):.4f}",
+        mse_train=f"{metricas.get('mse_train', 0):.4f}",
+        mse_test=f"{metricas.get('mse_test', 0):.4f}",
+    )
 
     self.grupo_modelo.setEnabled(True)
     self.btn_guardar.setEnabled(True)
@@ -1032,13 +1205,15 @@ class VentanaPrincipal(QMainWindow):
       self._actualizar_boton_guardar()
       self._actualizar_barra_estado()
 
-      self.lbl_formula.setText(f"<b>Fórmula:</b> {modelo_info.formula}")
+      self.lbl_formula.setText(modelo_info.formula)
 
       metricas = modelo_info.metricas
-      self.tabla_metricas.setItem(0, 0, QTableWidgetItem(f"{metricas['r2_train']:.4f}"))
-      self.tabla_metricas.setItem(1, 0, QTableWidgetItem(f"{metricas['mse_train']:.4f}"))
-      self.tabla_metricas.setItem(0, 1, QTableWidgetItem(f"{metricas['r2_test']:.4f}"))
-      self.tabla_metricas.setItem(1, 1, QTableWidgetItem(f"{metricas['mse_test']:.4f}"))
+      self._establecer_metricas(
+          r2_train=f"{metricas['r2_train']:.4f}",
+          r2_test=f"{metricas['r2_test']:.4f}",
+          mse_train=f"{metricas['mse_train']:.4f}",
+          mse_test=f"{metricas['mse_test']:.4f}",
+      )
 
       self.ax.clear()
       if len(self.features_seleccionadas) == 1:
@@ -1110,28 +1285,52 @@ class VentanaPrincipal(QMainWindow):
       self.grupo_prediccion.setEnabled(False)
 
       layout_principal_pred = QVBoxLayout(self.grupo_prediccion)
-      self.form_prediccion = QFormLayout()
-      layout_principal_pred.addLayout(self.form_prediccion)
+      layout_principal_pred.setSpacing(10)
+
+      self.layout_campos_prediccion = QVBoxLayout()
+      self.layout_campos_prediccion.setSpacing(8)
+      layout_principal_pred.addLayout(self.layout_campos_prediccion)
 
       self.btn_predecir = QPushButton("Realizar predicción")
+      self.btn_predecir.setMinimumHeight(36)
+      self.btn_predecir.setMaximumWidth(220)
       self.btn_predecir.clicked.connect(self._on_click_realizar_prediccion)
-      layout_principal_pred.addWidget(self.btn_predecir, alignment=Qt.AlignmentFlag.AlignLeft)
+      layout_principal_pred.addWidget(self.btn_predecir, alignment=Qt.AlignmentFlag.AlignHCenter)
 
       self.lbl_resultado_prediccion = QLabel("")
+      self.lbl_resultado_prediccion.setAlignment(Qt.AlignmentFlag.AlignCenter)
       layout_principal_pred.addWidget(self.lbl_resultado_prediccion)
 
       self.inputs_prediccion: dict[str, QLineEdit] = {}
 
+  def _limpiar_layout(self, layout):
+      while layout.count() > 0:
+          item = layout.takeAt(0)
+          if item.widget() is not None:
+              item.widget().deleteLater()
+          elif item.layout() is not None:
+              self._limpiar_layout(item.layout())
+
   def configurar_campos_prediccion(self, columnas_entrada: list[str]):
-      while self.form_prediccion.rowCount() > 0:
-          self.form_prediccion.removeRow(0)
+      self._limpiar_layout(self.layout_campos_prediccion)
       self.inputs_prediccion.clear()
       self.lbl_resultado_prediccion.setText("")
 
       for col in columnas_entrada:
+          bloque_campo = QVBoxLayout()
+          bloque_campo.setSpacing(3)
+
+          lbl_col = QLabel(f"{col}:")
+          lbl_col.setAlignment(Qt.AlignmentFlag.AlignCenter)
+          bloque_campo.addWidget(lbl_col, alignment=Qt.AlignmentFlag.AlignHCenter)
+
           campo = QLineEdit()
           campo.setPlaceholderText(f"Valor para {col}")
-          self.form_prediccion.addRow(f"{col}:", campo)
+          campo.setAlignment(Qt.AlignmentFlag.AlignCenter)
+          campo.setFixedWidth(220)
+          bloque_campo.addWidget(campo, alignment=Qt.AlignmentFlag.AlignHCenter)
+
+          self.layout_campos_prediccion.addLayout(bloque_campo)
           self.inputs_prediccion[col] = campo
 
       self.grupo_prediccion.setEnabled(True)
